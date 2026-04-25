@@ -1,7 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../controller/home_controller.dart';
+import '../controller/request_controller.dart';
 import '../models/home_model.dart';
+import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
+import 'search_tasks_screen.dart';
 import 'step1_kategori.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,40 +17,52 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final HomeController _controller = HomeController();
+  final RequestController _requestController = RequestController();
   late final HomeModel? _user;
   int _currentIndex = 0;
+
+  // Pages corresponding to bottom nav tabs
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _user = _controller.getUser();
+    _pages = [
+      _HomeContent(
+        user: _user,
+        requestController: _requestController,
+        onAddRequest: _openAddRequest,
+      ),
+      const SearchAvailableTasksScreen(),
+      const _PlaceholderPage(label: 'Chat'),
+      const _PlaceholderPage(label: 'Profile'),
+    ];
+  }
+
+  void _openAddRequest() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const Step1KategoriScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[200],
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _buildBody(),
-          ),
-        ],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
       ),
-      floatingActionButton: FloatingActionButton(
-       onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const Step1KategoriScreen(),
-    ),
-  );
-},
-        backgroundColor: const Color(0xFF1BAB8A),
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              onPressed: _openAddRequest,
+              backgroundColor: const Color(0xFF1BAB8A),
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
+            )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CustomNavigationBar(
         currentIndex: _currentIndex,
@@ -54,10 +70,68 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
 
-  // ─── Header ───────────────────────────────────────────────────────────────
+// ─── Placeholder pages for Chat / Profile ─────────────────────────────────────
 
-  Widget _buildHeader() {
+class _PlaceholderPage extends StatelessWidget {
+  final String label;
+  const _PlaceholderPage({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.construction_rounded,
+              size: 48, color: Color(0xFFCCCCCC)),
+          const SizedBox(height: 12),
+          Text(
+            'Halaman $label',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF888888),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Segera hadir',
+            style: TextStyle(fontSize: 13, color: Color(0xFFBBBBBB)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Home Content (tab 0) ─────────────────────────────────────────────────────
+
+class _HomeContent extends StatelessWidget {
+  final HomeModel? user;
+  final RequestController requestController;
+  final VoidCallback onAddRequest;
+
+  const _HomeContent({
+    required this.user,
+    required this.requestController,
+    required this.onAddRequest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _buildHeader(context),
+        Expanded(child: _buildBody(context)),
+      ],
+    );
+  }
+
+  // ─── Header ────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 48, 16, 20),
       decoration: const BoxDecoration(
@@ -85,7 +159,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 14),
-          _buildSearchBar(),
+          _buildSearchBar(context),
         ],
       ),
     );
@@ -95,7 +169,6 @@ class _HomePageState extends State<HomePage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Sapaan
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -104,7 +177,7 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(color: Colors.white70, fontSize: 12),
             ),
             Text(
-              'Halo, ${_user?.firstName ?? 'Pengguna'}!',
+              'Halo, ${user?.firstName ?? 'Pengguna'}!',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -113,10 +186,8 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-
         Row(
           children: [
-            // Notifikasi
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -129,10 +200,7 @@ class _HomePageState extends State<HomePage> {
                 size: 22,
               ),
             ),
-
             const SizedBox(width: 10),
-
-            // Foto profil Google
             _buildAvatar(),
           ],
         ),
@@ -141,9 +209,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAvatar() {
-    final photoUrl = _user?.photoUrl;
-    final initials = _user?.initials ?? 'U';
-
+    final photoUrl = user?.photoUrl;
+    final initials = user?.initials ?? 'U';
     return CircleAvatar(
       radius: 22,
       backgroundColor: Colors.orange.shade400,
@@ -161,27 +228,40 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: const TextField(
-        decoration: InputDecoration(
-          icon: Icon(Icons.search, color: Color(0xFFAAAAAA)),
-          hintText: 'Cari bantuan yang kamu butuhkan...',
-          hintStyle: TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
-          border: InputBorder.none,
+  Widget _buildSearchBar(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate parent's bottom nav to the Search tab (index 1)
+        // We bubble up via a callback or just push the screen directly
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const SearchAvailableTasksScreen()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.search, color: Color(0xFFAAAAAA)),
+            SizedBox(width: 10),
+            Text(
+              'Cari bantuan yang kamu butuhkan...',
+              style: TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ─── Body ─────────────────────────────────────────────────────────────────
+  // ─── Body ──────────────────────────────────────────────────────────────────
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -189,7 +269,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildCategorySection(),
           const SizedBox(height: 24),
-          _buildRecentTaskSection(),
+          _buildRecentTaskSection(context),
         ],
       ),
     );
@@ -257,7 +337,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRecentTaskSection() {
+  // ─── Recent Tasks (live from Firebase) ────────────────────────────────────
+
+  Widget _buildRecentTaskSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -272,48 +354,104 @@ class _HomePageState extends State<HomePage> {
                 color: Color(0xFF1A1A1A),
               ),
             ),
-            Text(
-              'Lihat semua',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.teal.shade600,
-                fontWeight: FontWeight.w500,
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SearchAvailableTasksScreen()),
+                );
+              },
+              child: Text(
+                'Lihat semua',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.teal.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        _buildTaskCard(
-          initials: 'AS',
-          color: const Color(0xFF1BAB8A),
-          name: 'Andi Saputra',
-          title: 'Pendampingan Statistika Dasar',
-          price: 'Rp 15.000 – 20.000',
-          category: 'Akademik',
-          isUrgent: true,
-        ),
-        _buildTaskCard(
-          initials: 'MR',
-          color: const Color(0xFF7C4DFF),
-          name: 'Maya R.',
-          title: 'Bantuan Desain Presentasi UAS',
-          price: 'Rp 30.000 – 50.000',
-          category: 'Akademik',
-          isUrgent: false,
+
+        // Real-time stream of the 5 latest requests
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('requests')
+              .orderBy('createdAt', descending: true)
+              .limit(5)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF1BAB8A), strokeWidth: 2),
+                ),
+              );
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEEEEEE)),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.inbox_rounded,
+                        size: 36, color: Color(0xFFCCCCCC)),
+                    SizedBox(height: 8),
+                    Text(
+                      'Belum ada permintaan',
+                      style: TextStyle(
+                          fontSize: 13, color: Color(0xFF888888)),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final requests = snapshot.data!.docs
+                .map((doc) => RequestModel.fromMap(
+                    doc.id, doc.data() as Map<String, dynamic>))
+                .toList();
+
+            return Column(
+              children: requests
+                  .map((r) => _buildTaskCard(r, requestController))
+                  .toList(),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildTaskCard({
-    required String initials,
-    required Color color,
-    required String name,
-    required String title,
-    required String price,
-    required String category,
-    required bool isUrgent,
-  }) {
+  Widget _buildTaskCard(RequestModel request, RequestController ctrl) {
+    final colors = [
+      const Color(0xFF1BAB8A),
+      const Color(0xFF7C4DFF),
+      const Color(0xFFFF6B35),
+      const Color(0xFF2196F3),
+      const Color(0xFFE91E63),
+    ];
+    final colorIndex =
+        (request.title.isNotEmpty ? request.title.codeUnitAt(0) : 0) %
+            colors.length;
+    final avatarColor = colors[colorIndex];
+    final initials = request.title.isNotEmpty
+        ? request.title.trim().split(' ').take(2).map((w) => w[0]).join()
+        : '??';
+
+    final bool isNew = request.createdAt != null &&
+        DateTime.now().difference(request.createdAt!).inHours < 3;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -329,12 +467,12 @@ class _HomePageState extends State<HomePage> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: color,
+              color: avatarColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
-                initials,
+                initials.toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -353,13 +491,13 @@ class _HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Text(
-                      name,
+                      request.category,
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF888888),
                       ),
                     ),
-                    if (isUrgent) ...[
+                    if (isNew) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -369,7 +507,7 @@ class _HomePageState extends State<HomePage> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
-                          'SEGERA',
+                          'BARU',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,
@@ -382,16 +520,18 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  title,
+                  request.title,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF1A1A1A),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  price,
+                  ctrl.formatRupiah(request.budget),
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF1BAB8A),
@@ -402,8 +542,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          const Icon(Icons.chevron_right_rounded,
-              color: Color(0xFFCCCCCC)),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFFCCCCCC)),
         ],
       ),
     );

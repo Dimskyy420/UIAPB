@@ -23,6 +23,17 @@ class RequestController {
     }
   }
 
+  // Stream semua permintaan (untuk Search Available Tasks)
+  Stream<List<RequestModel>> streamAllRequests() {
+    return _firestore
+        .collection('requests')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RequestModel.fromMap(doc.id, doc.data()))
+            .toList());
+  }
+
   // Ambil semua permintaan milik user
   Future<List<RequestModel>> getUserRequests() async {
     try {
