@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "1071057876617",
+    "project_id": "mvc-tasuru",
+    "storage_bucket": "mvc-tasuru.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071057876617:android:a2f25835cb85747c1a7858",
+        "android_client_info": {
+          "package_name": "com.example.tasuru_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1071057876617-o7tkg5lqpafuelb5olbtc61roqhmpfa8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.tasuru_app",
+            "certificate_hash": "fb8fc9e2261fba406fd513d5ace948b1c7cf1bf3"
+          }
+        },
+        {
+          "client_id": "1071057876617-9i7gk40n9ptbo10hhgrfhlgfk382g81b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPbKeOCI5pPO-XxjvlY2Qj_ZRWlAgxo0Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1071057876617-9i7gk40n9ptbo10hhgrfhlgfk382g81b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1071057876617-gpcr0gik2h6u7uqktbi0rfc04e4kv5tk.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.tasuruApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
