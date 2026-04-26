@@ -6,6 +6,7 @@ import '../models/home_model.dart';
 import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
 import 'search_tasks_screen.dart';
+import 'riwayat_tugas_screen.dart'; // ✅ GANTI import
 import 'step1_kategori.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,7 +22,6 @@ class _HomePageState extends State<HomePage> {
   late final HomeModel? _user;
   int _currentIndex = 0;
 
-  // Pages corresponding to bottom nav tabs
   late final List<Widget> _pages;
 
   @override
@@ -33,10 +33,11 @@ class _HomePageState extends State<HomePage> {
         user: _user,
         requestController: _requestController,
         onAddRequest: _openAddRequest,
+        onSearchTap: _goToSearchScreen, // ✅ TAMBAH callback
       ),
-      const SearchAvailableTasksScreen(),
-      const _PlaceholderPage(label: 'Chat'),
-      const _PlaceholderPage(label: 'Profile'),
+      const RiwayatTugasScreen(), // ✅ FIX: tab Tugas → Riwayat, bukan Search
+      const _PlaceholderPage(label: 'Pesan'),
+      const _PlaceholderPage(label: 'Profil'),
     ];
   }
 
@@ -44,6 +45,14 @@ class _HomePageState extends State<HomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const Step1KategoriScreen()),
+    );
+  }
+
+  // ✅ Navigasi ke Search sebagai halaman terpisah (bukan tab)
+  void _goToSearchScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SearchAvailableTasksScreen()),
     );
   }
 
@@ -72,7 +81,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ─── Placeholder pages for Chat / Profile ─────────────────────────────────────
+// ─── Placeholder pages ────────────────────────────────────────────────────────
 
 class _PlaceholderPage extends StatelessWidget {
   final String label;
@@ -112,11 +121,13 @@ class _HomeContent extends StatelessWidget {
   final HomeModel? user;
   final RequestController requestController;
   final VoidCallback onAddRequest;
+  final VoidCallback onSearchTap; // ✅ TAMBAH
 
   const _HomeContent({
     required this.user,
     required this.requestController,
     required this.onAddRequest,
+    required this.onSearchTap, // ✅ TAMBAH
   });
 
   @override
@@ -228,17 +239,10 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
+  // ✅ Search bar sekarang pakai onSearchTap callback (bukan Navigator langsung)
   Widget _buildSearchBar(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // Navigate parent's bottom nav to the Search tab (index 1)
-        // We bubble up via a callback or just push the screen directly
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => const SearchAvailableTasksScreen()),
-        );
-      },
+      onTap: onSearchTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
@@ -268,6 +272,8 @@ class _HomeContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCategorySection(),
+          const SizedBox(height: 20),
+          _buildSearchTaskBanner(context), // ✅ TAMBAH banner/tombol Search
           const SizedBox(height: 24),
           _buildRecentTaskSection(context),
         ],
@@ -337,7 +343,62 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  // ─── Recent Tasks (live from Firebase) ────────────────────────────────────
+  // ✅ Banner tombol menuju SearchAvailableTasksScreen
+  Widget _buildSearchTaskBanner(BuildContext context) {
+    return GestureDetector(
+      onTap: onSearchTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1BAB8A), Color(0xFF0F7A63)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.work_outline_rounded,
+                  color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Cari Tugas Tersedia',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Temukan permintaan yang sesuai keahlianmu',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white70, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Recent Tasks ─────────────────────────────────────────────────────────
 
   Widget _buildRecentTaskSection(BuildContext context) {
     return Column(
@@ -355,13 +416,7 @@ class _HomeContent extends StatelessWidget {
               ),
             ),
             GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SearchAvailableTasksScreen()),
-                );
-              },
+              onTap: onSearchTap, // ✅ Pakai callback, bukan Navigator langsung
               child: Text(
                 'Lihat semua',
                 style: TextStyle(
@@ -374,8 +429,6 @@ class _HomeContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-
-        // Real-time stream of the 5 latest requests
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('requests')
@@ -409,8 +462,8 @@ class _HomeContent extends StatelessWidget {
                     SizedBox(height: 8),
                     Text(
                       'Belum ada permintaan',
-                      style: TextStyle(
-                          fontSize: 13, color: Color(0xFF888888)),
+                      style:
+                          TextStyle(fontSize: 13, color: Color(0xFF888888)),
                     ),
                   ],
                 ),
@@ -462,7 +515,6 @@ class _HomeContent extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: 42,
             height: 42,
@@ -482,8 +534,6 @@ class _HomeContent extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,7 +591,6 @@ class _HomeContent extends StatelessWidget {
               ],
             ),
           ),
-
           const Icon(Icons.chevron_right_rounded, color: Color(0xFFCCCCCC)),
         ],
       ),

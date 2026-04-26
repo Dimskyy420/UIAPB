@@ -8,6 +8,7 @@ class RequestController {
 
   String get _userId => _auth.currentUser?.uid ?? '';
 
+  // ─── Submit request baru ──────────────────────────────────────────────────
   Future<String?> submitRequest(RequestModel request) async {
     try {
       final docRef = await _firestore.collection('requests').add(
@@ -23,7 +24,8 @@ class RequestController {
     }
   }
 
-  // Stream semua permintaan (untuk Search Available Tasks)
+  // ─── Stream semua permintaan (Search Available Tasks) ────────────────────
+  // Tidak menampilkan request milik user sendiri
   Stream<List<RequestModel>> streamAllRequests() {
     return _firestore
         .collection('requests')
@@ -31,10 +33,24 @@ class RequestController {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => RequestModel.fromMap(doc.id, doc.data()))
+            // Filter: sembunyikan request milik diri sendiri
+            .where((r) => r.userId != _userId)
             .toList());
   }
 
-  // Ambil semua permintaan milik user
+  // ─── Stream request milik user sendiri (My Requests) ─────────────────────
+  Stream<List<RequestModel>> streamMyRequests() {
+    return _firestore
+        .collection('requests')
+        .where('userId', isEqualTo: _userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RequestModel.fromMap(doc.id, doc.data()))
+            .toList());
+  }
+
+  // ─── Ambil semua permintaan milik user (sekali ambil) ────────────────────
   Future<List<RequestModel>> getUserRequests() async {
     try {
       final snapshot = await _firestore
@@ -51,7 +67,49 @@ class RequestController {
     }
   }
 
-  // Tanggal tersedia (hari ini, besok, lusa)
+  // ─── Cek apakah user adalah pembuat request ───────────────────────────────
+  // true  → pembuat → TIDAK boleh ajukan penawaran
+  // false → helper  → BOLEH ajukan penawaran
+  bool isCreator(RequestModel request) {
+    return _userId.isNotEmpty && _userId == request.userId;
+  }
+
+  // ─── Update status request ────────────────────────────────────────────────
+  Future<String?> updateStatus(String requestId, String newStatus) async {
+    try {
+      await _firestore
+          .collection('requests')
+          .doc(requestId)
+          .update({'status': newStatus});
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // ─── Hapus request (hanya pembuat) ───────────────────────────────────────
+  Future<String?> deleteRequest(String requestId) async {
+    try {
+      // Hapus semua penawaran (subcollection) dulu
+      final penawaranSnap = await _firestore
+          .collection('requests')
+          .doc(requestId)
+          .collection('penawaran')
+          .get();
+
+      for (final doc in penawaranSnap.docs) {
+        await doc.reference.delete();
+      }
+
+      // Hapus dokumen request
+      await _firestore.collection('requests').doc(requestId).delete();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // ─── Tanggal tersedia (hari ini, besok, lusa) ─────────────────────────────
   List<Map<String, String>> getAvailableDates() {
     final now = DateTime.now();
     final days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -71,7 +129,7 @@ class RequestController {
     });
   }
 
-  // Jam tersedia
+  // ─── Jam tersedia ─────────────────────────────────────────────────────────
   List<String> getAvailableTimes() {
     return [
       '07:00', '08:00', '09:00', '10:00',
@@ -80,7 +138,7 @@ class RequestController {
     ];
   }
 
-  // Format rupiah
+  // ─── Format rupiah ────────────────────────────────────────────────────────
   String formatRupiah(int amount) {
     final str = amount.toString();
     final result = StringBuffer();

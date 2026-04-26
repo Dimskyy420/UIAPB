@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/request_model.dart';
 import '../controller/request_controller.dart';
+import '../controller/bid_controller.dart'; // ✅ TAMBAH IMPORT
 
 class SearchAvailableTasksScreen extends StatefulWidget {
   const SearchAvailableTasksScreen({super.key});
@@ -20,19 +21,12 @@ class _SearchAvailableTasksScreenState
   String _selectedCategory = 'Semua';
 
   static const List<String> _categories = [
-    'Semua',
-    'Akademik',
-    'Administrasi',
-    'Logistik',
-    'Event',
+    'Semua', 'Akademik', 'Administrasi', 'Logistik', 'Event',
   ];
 
   static const Map<String, String> _categoryIcons = {
-    'Semua': '🔍',
-    'Akademik': '📚',
-    'Administrasi': '📋',
-    'Logistik': '📦',
-    'Event': '🎉',
+    'Semua': '🔍', 'Akademik': '📚', 'Administrasi': '📋',
+    'Logistik': '📦', 'Event': '🎉',
   };
 
   @override
@@ -41,7 +35,6 @@ class _SearchAvailableTasksScreenState
     super.dispose();
   }
 
-  // Filter a list of requests based on query & selected category
   List<RequestModel> _filter(List<RequestModel> all) {
     final q = _query.toLowerCase();
     return all.where((r) {
@@ -69,8 +62,6 @@ class _SearchAvailableTasksScreenState
     );
   }
 
-  // ─── Header ──────────────────────────────────────────────────────────────
-
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 52, 16, 20),
@@ -91,9 +82,7 @@ class _SearchAvailableTasksScreenState
           const Text(
             'Cari Tugas Tersedia',
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
@@ -112,8 +101,7 @@ class _SearchAvailableTasksScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white, borderRadius: BorderRadius.circular(14),
       ),
       child: TextField(
         controller: _searchController,
@@ -125,8 +113,7 @@ class _SearchAvailableTasksScreenState
           border: InputBorder.none,
           suffixIcon: _query.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear,
-                      size: 18, color: Color(0xFFAAAAAA)),
+                  icon: const Icon(Icons.clear, size: 18, color: Color(0xFFAAAAAA)),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _query = '');
@@ -137,8 +124,6 @@ class _SearchAvailableTasksScreenState
       ),
     );
   }
-
-  // ─── Category Filter ──────────────────────────────────────────────────────
 
   Widget _buildCategoryFilter() {
     return Container(
@@ -168,18 +153,15 @@ class _SearchAvailableTasksScreenState
               ),
               child: Row(
                 children: [
-                  Text(
-                    _categoryIcons[cat] ?? '📌',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  Text(_categoryIcons[cat] ?? '📌',
+                      style: const TextStyle(fontSize: 13)),
                   const SizedBox(width: 6),
                   Text(
                     cat,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color:
-                          isSelected ? Colors.white : const Color(0xFF444444),
+                      color: isSelected ? Colors.white : const Color(0xFF444444),
                     ),
                   ),
                 ],
@@ -191,8 +173,6 @@ class _SearchAvailableTasksScreenState
     );
   }
 
-  // ─── Task List (real-time stream) ─────────────────────────────────────────
-
   Widget _buildTaskList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -200,14 +180,11 @@ class _SearchAvailableTasksScreenState
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        // Loading
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(color: Color(0xFF1BAB8A)),
           );
         }
-
-        // Error
         if (snapshot.hasError) {
           return _buildEmptyState(
             icon: Icons.error_outline_rounded,
@@ -217,14 +194,13 @@ class _SearchAvailableTasksScreenState
           );
         }
 
-        // Parse docs
         final docs = snapshot.data?.docs ?? [];
         final allRequests = docs
-            .map((doc) => RequestModel.fromMap(
-                doc.id, doc.data() as Map<String, dynamic>))
+            .map((doc) =>
+                RequestModel.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+            // ✅ Filter: sembunyikan request milik sendiri
+            .where((r) => !_requestController.isCreator(r))
             .toList();
-
-        // Apply search + category filter
         final filtered = _filter(allRequests);
 
         if (filtered.isEmpty) {
@@ -241,7 +217,6 @@ class _SearchAvailableTasksScreenState
 
         return Column(
           children: [
-            // Result count
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
@@ -257,8 +232,6 @@ class _SearchAvailableTasksScreenState
                 ],
               ),
             ),
-
-            // Cards
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -273,14 +246,10 @@ class _SearchAvailableTasksScreenState
     );
   }
 
-  // ─── Task Card ────────────────────────────────────────────────────────────
-
   Widget _buildTaskCard(RequestModel request, RequestController ctrl) {
     final colors = [
-      const Color(0xFF1BAB8A),
-      const Color(0xFF7C4DFF),
-      const Color(0xFFFF6B35),
-      const Color(0xFF2196F3),
+      const Color(0xFF1BAB8A), const Color(0xFF7C4DFF),
+      const Color(0xFFFF6B35), const Color(0xFF2196F3),
       const Color(0xFFE91E63),
     ];
     final colorIndex =
@@ -290,7 +259,6 @@ class _SearchAvailableTasksScreenState
     final initials = request.title.isNotEmpty
         ? request.title.trim().split(' ').take(2).map((w) => w[0]).join()
         : '??';
-
     final bool isUrgent = request.status == 'segera' ||
         (request.createdAt != null &&
             DateTime.now().difference(request.createdAt!).inHours < 3);
@@ -322,10 +290,8 @@ class _SearchAvailableTasksScreenState
               children: [
                 Row(
                   children: [
-                    // Avatar
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 44, height: 44,
                       decoration: BoxDecoration(
                         color: avatarColor,
                         borderRadius: BorderRadius.circular(12),
@@ -342,15 +308,12 @@ class _SearchAvailableTasksScreenState
                       ),
                     ),
                     const SizedBox(width: 12),
-
-                    // Title + category
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              // Category chip
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 7, vertical: 2),
@@ -402,13 +365,10 @@ class _SearchAvailableTasksScreenState
                         ],
                       ),
                     ),
-
                     const Icon(Icons.chevron_right_rounded,
                         color: Color(0xFFCCCCCC)),
                   ],
                 ),
-
-                // Description preview
                 if (request.description.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -416,31 +376,21 @@ class _SearchAvailableTasksScreenState
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF888888),
-                      height: 1.4,
+                      fontSize: 12, color: Color(0xFF888888), height: 1.4,
                     ),
                   ),
                 ],
-
                 const SizedBox(height: 10),
                 const Divider(height: 1, color: Color(0xFFF0F0F0)),
                 const SizedBox(height: 10),
-
-                // Meta row: budget | duration | mode
                 Row(
                   children: [
-                    _metaChip(
-                      Icons.payments_outlined,
-                      ctrl.formatRupiah(request.budget),
-                      const Color(0xFF1BAB8A),
-                    ),
+                    _metaChip(Icons.payments_outlined,
+                        ctrl.formatRupiah(request.budget),
+                        const Color(0xFF1BAB8A)),
                     const SizedBox(width: 8),
-                    _metaChip(
-                      Icons.schedule_outlined,
-                      request.duration,
-                      const Color(0xFF888888),
-                    ),
+                    _metaChip(Icons.schedule_outlined, request.duration,
+                        const Color(0xFF888888)),
                     const SizedBox(width: 8),
                     _metaChip(
                       request.mode == 'Tatap Muka'
@@ -467,16 +417,12 @@ class _SearchAvailableTasksScreenState
         Text(
           label,
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: color,
+            fontSize: 11, fontWeight: FontWeight.w500, color: color,
           ),
         ),
       ],
     );
   }
-
-  // ─── Empty State ──────────────────────────────────────────────────────────
 
   Widget _buildEmptyState({
     required IconData icon,
@@ -495,8 +441,7 @@ class _SearchAvailableTasksScreenState
             Text(
               title,
               style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontSize: 15, fontWeight: FontWeight.w700,
                 color: Color(0xFF444444),
               ),
               textAlign: TextAlign.center,
@@ -513,8 +458,6 @@ class _SearchAvailableTasksScreenState
     );
   }
 
-  // ─── Task Detail Bottom Sheet ─────────────────────────────────────────────
-
   void _showTaskDetail(RequestModel request, RequestController ctrl) {
     showModalBottomSheet(
       context: context,
@@ -527,14 +470,86 @@ class _SearchAvailableTasksScreenState
 
 // ─── Detail Sheet ─────────────────────────────────────────────────────────────
 
-class _TaskDetailSheet extends StatelessWidget {
+class _TaskDetailSheet extends StatefulWidget {
   final RequestModel request;
   final RequestController ctrl;
 
   const _TaskDetailSheet({required this.request, required this.ctrl});
 
   @override
+  State<_TaskDetailSheet> createState() => _TaskDetailSheetState();
+}
+
+class _TaskDetailSheetState extends State<_TaskDetailSheet> {
+  // ✅ Gunakan BidController, bukan RequestController
+  final BidController _bidController = BidController();
+
+  bool _isLoading = false;
+  bool _alreadyBid = false;   // ✅ State cek duplikat
+  bool _checkingBid = true;   // ✅ State loading saat cek awal
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBidStatus(); // ✅ Cek saat sheet dibuka
+  }
+
+  // ✅ Cek apakah user sudah pernah menawar request ini
+  Future<void> _checkBidStatus() async {
+    if (widget.request.id == null) {
+      setState(() => _checkingBid = false);
+      return;
+    }
+    final result = await _bidController.hasAlreadyBid(widget.request.id!);
+    if (mounted) {
+      setState(() {
+        _alreadyBid = result;
+        _checkingBid = false;
+      });
+    }
+  }
+
+  // ✅ Ajukan penawaran via BidController
+  Future<void> _ajukan() async {
+    setState(() => _isLoading = true);
+
+    final error = await _bidController.ajukanPenawaran(
+      request: widget.request,
+      pesan: 'Saya siap membantu!',
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (error == null) {
+      // Sukses → update state tombol
+      setState(() => _alreadyBid = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Penawaran berhasil dikirim! 🎉'),
+          backgroundColor: const Color(0xFF1BAB8A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } else {
+      // Gagal → tampilkan error, sheet tetap terbuka
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final request = widget.request;
+    final ctrl = widget.ctrl;
+
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       minChildSize: 0.4,
@@ -546,17 +561,14 @@ class _TaskDetailSheet extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Handle
             Container(
               margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 40,
-              height: 4,
+              width: 40, height: 4,
               decoration: BoxDecoration(
                 color: const Color(0xFFDDDDDD),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollCtrl,
@@ -564,26 +576,21 @@ class _TaskDetailSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title + category
                     Text(
                       request.title,
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18, fontWeight: FontWeight.w700,
                         color: Color(0xFF1A1A1A),
                       ),
                     ),
                     const SizedBox(height: 6),
                     _categoryChip(request.category),
                     const SizedBox(height: 16),
-
-                    // Description
                     if (request.description.isNotEmpty) ...[
                       const Text(
                         'Deskripsi',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12, fontWeight: FontWeight.w700,
                           color: Color(0xFF555555),
                         ),
                       ),
@@ -591,15 +598,11 @@ class _TaskDetailSheet extends StatelessWidget {
                       Text(
                         request.description,
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF444444),
-                          height: 1.5,
+                          fontSize: 13, color: Color(0xFF444444), height: 1.5,
                         ),
                       ),
                       const SizedBox(height: 16),
                     ],
-
-                    // Detail rows
                     _detailCard([
                       _detailRow('Tanggal', request.date, Icons.calendar_today_outlined),
                       _detailRow('Waktu', request.time, Icons.schedule_outlined),
@@ -611,48 +614,87 @@ class _TaskDetailSheet extends StatelessWidget {
                               : Icons.videocam_outlined),
                     ]),
                     const SizedBox(height: 12),
-
-                    // Budget
                     _detailCard([
-                      _detailRow(
-                        'Budget Maksimal',
-                        ctrl.formatRupiah(request.budget),
-                        Icons.payments_outlined,
-                        valueColor: const Color(0xFF1BAB8A),
-                        valueBold: true,
-                      ),
-                      _detailRow(
-                        'Estimasi Total Biaya',
-                        ctrl.formatRupiah(request.totalEstimasi),
-                        Icons.calculate_outlined,
-                      ),
+                      _detailRow('Budget Maksimal', ctrl.formatRupiah(request.budget),
+                          Icons.payments_outlined,
+                          valueColor: const Color(0xFF1BAB8A), valueBold: true),
+                      _detailRow('Estimasi Total Biaya',
+                          ctrl.formatRupiah(request.totalEstimasi),
+                          Icons.calculate_outlined),
                     ]),
                     const SizedBox(height: 24),
 
-                    // Offer button
+                    // ✅ Tombol dengan 3 state: loading cek, sudah bid, belum bid
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.handshake_outlined,
-                            color: Colors.white, size: 18),
-                        label: const Text(
-                          'Ajukan Penawaran',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1BAB8A),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
+                      child: _checkingBid
+                          // State 1: sedang cek ke Firestore
+                          ? OutlinedButton(
+                              onPressed: null,
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFDDDDDD)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
+                              ),
+                              child: const SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF1BAB8A),
+                                ),
+                              ),
+                            )
+                          : _alreadyBid
+                              // State 2: sudah pernah bid → disabled abu
+                              ? ElevatedButton.icon(
+                                  onPressed: null,
+                                  icon: const Icon(Icons.check_circle_outline,
+                                      color: Colors.white, size: 18),
+                                  label: const Text(
+                                    'Sudah Ditawar',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey.shade400,
+                                    disabledBackgroundColor: Colors.grey.shade400,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                )
+                              // State 3: belum bid → aktif hijau
+                              : ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _ajukan,
+                                  icon: _isLoading
+                                      ? const SizedBox(
+                                          width: 18, height: 18,
+                                          child: CircularProgressIndicator(
+                                              color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.handshake_outlined,
+                                          color: Colors.white, size: 18),
+                                  label: Text(
+                                    _isLoading ? 'Mengirim...' : 'Ajukan Penawaran',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1BAB8A),
+                                    disabledBackgroundColor:
+                                        const Color(0xFF1BAB8A).withOpacity(0.6),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                ),
                     ),
                   ],
                 ),
@@ -674,9 +716,7 @@ class _TaskDetailSheet extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1BAB8A),
+          fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1BAB8A),
         ),
       ),
     );
@@ -699,13 +739,8 @@ class _TaskDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(
-    String label,
-    String value,
-    IconData icon, {
-    Color valueColor = const Color(0xFF333333),
-    bool valueBold = false,
-  }) {
+  Widget _detailRow(String label, String value, IconData icon,
+      {Color valueColor = const Color(0xFF333333), bool valueBold = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -718,8 +753,7 @@ class _TaskDetailSheet extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF888888),
+                  fontSize: 11, color: Color(0xFF888888),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -729,8 +763,7 @@ class _TaskDetailSheet extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   color: valueColor,
-                  fontWeight:
-                      valueBold ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../controller/auth_controller.dart';
-import 'home.dart'; // sesuaikan path
+import 'home.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -64,6 +64,52 @@ class _AuthScreenState extends State<AuthScreen>
     });
   }
 
+  // ─── Handler Login Email ──────────────────────────────────────────────────
+  Future<void> _handleLogin() async {
+    final email = _loginEmailCtrl.text.trim();
+    final password = _loginPasswordCtrl.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError('Email dan kata sandi tidak boleh kosong');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final error = await _authController.signInWithEmail(
+      email: email,
+      password: password,
+    );
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (error == null) {
+      _goHome();
+    } else {
+      _showError(error);
+    }
+  }
+
+  // ─── Handler Register Email ───────────────────────────────────────────────
+  Future<void> _handleRegister() async {
+    setState(() => _isLoading = true);
+    final error = await _authController.registerWithEmail(
+      name: _regNameCtrl.text,
+      university: _regUniversityCtrl.text,
+      email: _regEmailCtrl.text,
+      password: _regPasswordCtrl.text,
+      confirmPassword: _regConfirmCtrl.text,
+    );
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (error == null) {
+      _goHome();
+    } else {
+      _showError(error);
+    }
+  }
+
+  // ─── Handler Google ───────────────────────────────────────────────────────
   Future<void> _handleGoogle() async {
     setState(() => _isLoading = true);
     final error = await _authController.signInWithGoogle();
@@ -73,16 +119,19 @@ class _AuthScreenState extends State<AuthScreen>
     if (error == null) {
       _goHome();
     } else if (error != 'Login dibatalkan') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+      _showError(error);
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   void _goHome() {
@@ -112,8 +161,7 @@ class _AuthScreenState extends State<AuthScreen>
                   SizedBox(height: sh * 0.024),
                   FadeTransition(
                     opacity: _fadeAnim,
-                    child:
-                        _isLogin ? _buildLoginForm() : _buildRegisterForm(),
+                    child: _isLogin ? _buildLoginForm() : _buildRegisterForm(),
                   ),
                 ],
               ),
@@ -144,7 +192,6 @@ class _AuthScreenState extends State<AuthScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo
           Row(
             children: [
               Container(
@@ -155,8 +202,7 @@ class _AuthScreenState extends State<AuthScreen>
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Center(
-                  child: Text('🤝',
-                      style: TextStyle(fontSize: sw * 0.045)),
+                  child: Text('🤝', style: TextStyle(fontSize: sw * 0.045)),
                 ),
               ),
               const SizedBox(width: 9),
@@ -172,7 +218,6 @@ class _AuthScreenState extends State<AuthScreen>
             ],
           ),
           SizedBox(height: sh * 0.018),
-          // Dynamic title
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: Column(
@@ -218,10 +263,8 @@ class _AuthScreenState extends State<AuthScreen>
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
-          _tabItem('Masuk', isActive: _isLogin,
-              onTap: () => _switchTab(true)),
-          _tabItem('Daftar', isActive: !_isLogin,
-              onTap: () => _switchTab(false)),
+          _tabItem('Masuk', isActive: _isLogin, onTap: () => _switchTab(true)),
+          _tabItem('Daftar', isActive: !_isLogin, onTap: () => _switchTab(false)),
         ],
       ),
     );
@@ -297,7 +340,8 @@ class _AuthScreenState extends State<AuthScreen>
           ),
         ),
         const SizedBox(height: 18),
-        _submitButton(label: 'Masuk'),
+        // ✅ Ganti _goHome → _handleLogin
+        _submitButton(label: 'Masuk', onPressed: _handleLogin),
         const SizedBox(height: 16),
         _divider(),
         const SizedBox(height: 13),
@@ -344,7 +388,8 @@ class _AuthScreenState extends State<AuthScreen>
               setState(() => _regConfirmObscure = !_regConfirmObscure),
         ),
         const SizedBox(height: 18),
-        _submitButton(label: 'Daftar Sekarang'),
+        // ✅ Ganti _goHome → _handleRegister
+        _submitButton(label: 'Daftar Sekarang', onPressed: _handleRegister),
         const SizedBox(height: 16),
         _divider(),
         const SizedBox(height: 13),
@@ -401,42 +446,36 @@ class _AuthScreenState extends State<AuthScreen>
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle:
-          const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
-      prefixIcon:
-          Icon(prefixIcon, color: const Color(0xFFBBBBBB), size: 18),
+      hintStyle: const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
+      prefixIcon: Icon(prefixIcon, color: const Color(0xFFBBBBBB), size: 18),
       filled: true,
       fillColor: Colors.white,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide:
-            const BorderSide(color: Color(0xFFE5E5E5), width: 1),
+        borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide:
-            const BorderSide(color: Color(0xFFE5E5E5), width: 1),
+        borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide:
-            const BorderSide(color: Color(0xFF1BAB8A), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF1BAB8A), width: 1.5),
       ),
     );
   }
 
-  Widget _submitButton({required String label}) {
+  // ✅ Tambah parameter onPressed
+  Widget _submitButton({required String label, required VoidCallback onPressed}) {
     return SizedBox(
       width: double.infinity,
       height: 46,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _goHome,
+        onPressed: _isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1BAB8A),
-          disabledBackgroundColor:
-              const Color(0xFF1BAB8A).withOpacity(0.55),
+          disabledBackgroundColor: const Color(0xFF1BAB8A).withOpacity(0.55),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -472,25 +511,19 @@ class _AuthScreenState extends State<AuthScreen>
   Widget _divider() {
     return Row(
       children: [
-        Expanded(
-            child:
-                Divider(color: Colors.grey.shade300, thickness: 0.8)),
+        Expanded(child: Divider(color: Colors.grey.shade300, thickness: 0.8)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'atau lanjut dengan',
-            style:
-                TextStyle(color: Colors.grey.shade500, fontSize: 11),
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
           ),
         ),
-        Expanded(
-            child:
-                Divider(color: Colors.grey.shade300, thickness: 0.8)),
+        Expanded(child: Divider(color: Colors.grey.shade300, thickness: 0.8)),
       ],
     );
   }
 
-  // ─── Google Button ────────────────────────────────────────────────────────
   Widget _googleButton() {
     return SizedBox(
       width: double.infinity,
@@ -499,9 +532,8 @@ class _AuthScreenState extends State<AuthScreen>
         onPressed: _isLoading ? null : _handleGoogle,
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           backgroundColor: Colors.white,
         ),
         child: _isLoading
@@ -521,8 +553,7 @@ class _AuthScreenState extends State<AuthScreen>
                     height: 22,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border:
-                          Border.all(color: const Color(0xFFEEEEEE)),
+                      border: Border.all(color: const Color(0xFFEEEEEE)),
                     ),
                     child: const Center(
                       child: Text(

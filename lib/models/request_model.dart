@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class RequestModel {
   final String? id;
   final String userId;
@@ -5,7 +7,7 @@ class RequestModel {
   final String title;
   final String description;
   final String duration;
-  final String mode; 
+  final String mode;
   final String location;
   final String date;
   final String time;
@@ -60,11 +62,11 @@ class RequestModel {
       time: map['time'] ?? '',
       budget: map['budget'] ?? 0,
       status: map['status'] ?? 'menunggu',
-      createdAt: map['createdAt']?.toDate(),
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 
-  // Hitung estimasi biaya
+  // ─── Kalkulasi biaya ───────────────────────────────────────────────────────
   int get biayaLayanan {
     switch (duration) {
       case '< 1 jam':
@@ -86,7 +88,7 @@ class RequestModel {
   int get extraFee => mode == 'Tatap Muka' ? 3000 : 0;
   int get totalEstimasi => biayaLayanan + platformFee + extraFee;
 
-  // Copy with untuk update field tertentu
+  // ─── Copy with ────────────────────────────────────────────────────────────
   RequestModel copyWith({
     String? category,
     String? title,
@@ -97,6 +99,7 @@ class RequestModel {
     String? date,
     String? time,
     int? budget,
+    String? status,
   }) {
     return RequestModel(
       id: id,
@@ -110,7 +113,7 @@ class RequestModel {
       date: date ?? this.date,
       time: time ?? this.time,
       budget: budget ?? this.budget,
-      status: status,
+      status: status ?? this.status,
       createdAt: createdAt,
     );
   }
