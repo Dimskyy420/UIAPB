@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
+import '../controller/chat_controller.dart';
+import 'chat_ui_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final RequestModel request;
@@ -40,13 +42,13 @@ class TaskDetailScreen extends StatelessWidget {
                   _buildBudgetCard(),
                   const SizedBox(height: 24),
                   if (isOwner)
-                    _BidsSection(
-                        request: request, controller: controller)
+                    _BidsSection(request: request, controller: controller)
                   else if (highlightBidId != null)
                     _MyBidSection(
-                        request: request,
-                        controller: controller,
-                        bidId: highlightBidId!),
+                      request: request,
+                      controller: controller,
+                      bidId: highlightBidId!,
+                    ),
                 ],
               ),
             ),
@@ -127,9 +129,7 @@ class TaskDetailScreen extends StatelessWidget {
           if (request.description.isNotEmpty) ...[
             Text(request.description,
                 style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF555555),
-                    height: 1.5)),
+                    fontSize: 13, color: Color(0xFF555555), height: 1.5)),
             const SizedBox(height: 14),
             const Divider(color: Color(0xFFF0F0F0)),
             const SizedBox(height: 14),
@@ -191,14 +191,13 @@ class TaskDetailScreen extends StatelessWidget {
   }
 }
 
-// ─── Penawaran masuk (owner view) ─────────────────────────────────────────────
+// ─── Penawaran masuk (owner / requester view) ─────────────────────────────────
 
 class _BidsSection extends StatelessWidget {
   final RequestModel request;
   final RiwayatController controller;
 
-  const _BidsSection(
-      {required this.request, required this.controller});
+  const _BidsSection({required this.request, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -259,8 +258,7 @@ class _BidsSection extends StatelessWidget {
                         SizedBox(height: 8),
                         Text('Belum ada penawaran',
                             style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF888888))),
+                                fontSize: 13, color: Color(0xFF888888))),
                       ],
                     ),
                   ),
@@ -272,6 +270,9 @@ class _BidsSection extends StatelessWidget {
                   .map((bid) => _BidCard(
                         bid: bid,
                         requestId: request.id!,
+                        requestTitle: request.title,
+                        requesterId: request.userId,
+                        requestStatus: request.status,
                         controller: controller,
                         showActions: true,
                       ))
@@ -308,12 +309,32 @@ class _MyBidSection extends StatelessWidget {
           future: controller.getBidById(request.id ?? '', bidId),
           builder: (context, snap) {
             if (!snap.hasData) return const SizedBox.shrink();
-            return _BidCard(
-              bid: snap.data!,
-              requestId: request.id ?? '',
-              controller: controller,
-              isHighlighted: true,
-              showActions: false,
+            final bid = snap.data!;
+            return Column(
+              children: [
+                _BidCard(
+                  bid: bid,
+                  requestId: request.id ?? '',
+                  requestTitle: request.title,
+                  requesterId: request.userId,
+                  requestStatus: request.status,
+                  controller: controller,
+                  isHighlighted: true,
+                  showActions: false, // helper tidak ada tombol apapun di sini
+                ),
+                // Helper hanya lihat tombol Chat, tidak ada tombol Selesai
+                if (bid.status == 'diterima')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: _ChatButton(
+                      requestId: request.id ?? '',
+                      requestTitle: request.title,
+                      requesterId: request.userId,
+                      helperUid: bid.helperUid,
+                      isPeminta: false,
+                    ),
+                  ),
+              ],
             );
           },
         ),
@@ -327,6 +348,9 @@ class _MyBidSection extends StatelessWidget {
 class _BidCard extends StatelessWidget {
   final BidModel bid;
   final String requestId;
+  final String requestTitle;
+  final String requesterId;
+  final String requestStatus;
   final RiwayatController controller;
   final bool isHighlighted;
   final bool showActions;
@@ -334,6 +358,9 @@ class _BidCard extends StatelessWidget {
   const _BidCard({
     required this.bid,
     required this.requestId,
+    required this.requestTitle,
+    required this.requesterId,
+    required this.requestStatus,
     required this.controller,
     this.isHighlighted = false,
     this.showActions = true,
@@ -374,6 +401,7 @@ class _BidCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ─── Header: avatar, harga, status ──────────────────────────────
             Row(
               children: [
                 CircleAvatar(
@@ -417,6 +445,8 @@ class _BidCard extends StatelessWidget {
                     textColor: statusColor),
               ],
             ),
+
+            // ─── Pesan helper ────────────────────────────────────────────────
             if (bid.pesan.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -430,6 +460,8 @@ class _BidCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+
+            // ─── Aksi: Tolak / Terima (menunggu) ────────────────────────────
             if (showActions && bid.status == 'menunggu') ...[
               const SizedBox(height: 12),
               const Divider(height: 1, color: Color(0xFFF0F0F0)),
@@ -440,12 +472,10 @@ class _BidCard extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: () => _tolak(context),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: Color(0xFFEF5350)),
+                        side: const BorderSide(color: Color(0xFFEF5350)),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                       child: const Text('Tolak',
                           style: TextStyle(
@@ -463,8 +493,7 @@ class _BidCard extends StatelessWidget {
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                       child: const Text('Terima',
                           style: TextStyle(
@@ -475,6 +504,54 @@ class _BidCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ]
+
+            // ─── Aksi: Chat + Selesai (diterima, requester view) ─────────────
+            else if (showActions && bid.status == 'diterima') ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: Color(0xFFF0F0F0)),
+              const SizedBox(height: 10),
+
+              // Tombol Buka Chat
+              _ChatButton(
+                requestId: requestId,
+                requestTitle: requestTitle,
+                requesterId: requesterId,
+                helperUid: bid.helperUid,
+                isPeminta: true,
+              ),
+
+              const SizedBox(height: 8),
+
+              // Tombol Selesai atau label sudah selesai
+              if (requestStatus != 'selesai')
+                _SelesaiButton(requestId: requestId)
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2196F3).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: const Color(0xFF2196F3).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded,
+                          size: 16, color: Color(0xFF2196F3)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Tugas Telah Selesai',
+                        style: TextStyle(
+                            color: Color(0xFF2196F3),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ],
         ),
@@ -492,8 +569,8 @@ class _BidCard extends StatelessWidget {
       backgroundColor:
           error == null ? const Color(0xFF1BAB8A) : Colors.red.shade400,
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10)),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
   }
 
@@ -504,17 +581,211 @@ class _BidCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(error ?? 'Penawaran ditolak.'),
-      backgroundColor: error == null
-          ? Colors.grey.shade600
-          : Colors.red.shade400,
+      backgroundColor:
+          error == null ? Colors.grey.shade600 : Colors.red.shade400,
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10)),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
   }
 }
 
-// ─── Shared widgets ───────────────────────────────────────────────────────────
+// ─── Tombol Selesai ───────────────────────────────────────────────────────────
+
+class _SelesaiButton extends StatefulWidget {
+  final String requestId;
+
+  const _SelesaiButton({required this.requestId});
+
+  @override
+  State<_SelesaiButton> createState() => _SelesaiButtonState();
+}
+
+class _SelesaiButtonState extends State<_SelesaiButton> {
+  bool _isLoading = false;
+
+  Future<void> _konfirmasiSelesai() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Tandai Selesai?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          'Pastikan tugas sudah benar-benar selesai dikerjakan sebelum mengkonfirmasi.',
+          style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal',
+                style: TextStyle(color: Color(0xFF888888))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2196F3),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Ya, Selesai',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('requests')
+          .doc(widget.requestId)
+          .update({'status': 'selesai'});
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Tugas ditandai selesai! ✅'),
+          backgroundColor: const Color(0xFF2196F3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal: ${e.toString()}'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _isLoading ? null : _konfirmasiSelesai,
+        icon: _isLoading
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFF2196F3)),
+              )
+            : const Icon(Icons.check_circle_outline_rounded,
+                size: 16, color: Color(0xFF2196F3)),
+        label: Text(
+          _isLoading ? 'Memproses...' : 'Tandai Selesai',
+          style: const TextStyle(
+              color: Color(0xFF2196F3),
+              fontSize: 13,
+              fontWeight: FontWeight.w600),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFF2196F3)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Chat Button ──────────────────────────────────────────────────────────────
+
+class _ChatButton extends StatelessWidget {
+  final String requestId;
+  final String requestTitle;
+  final String requesterId;
+  final String helperUid;
+  final bool isPeminta;
+
+  const _ChatButton({
+    required this.requestId,
+    required this.requestTitle,
+    required this.requesterId,
+    required this.helperUid,
+    required this.isPeminta,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => _bukaChat(context),
+        icon: const Icon(Icons.chat_bubble_outline_rounded,
+            size: 16, color: Colors.white),
+        label: const Text(
+          'Buka Chat',
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1BAB8A),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _bukaChat(BuildContext context) async {
+    final ctrl = ChatController();
+
+    final roomId = await ctrl.getOrCreateChatRoom(
+      requestId: requestId,
+      requestTitle: requestTitle,
+      requesterId: requesterId,
+      helperId: helperUid,
+    );
+
+    if (roomId == null || !context.mounted) return;
+
+    final otherUid = isPeminta ? helperUid : requesterId;
+    final initials = otherUid.length >= 2
+        ? otherUid.substring(0, 2).toUpperCase()
+        : otherUid.toUpperCase();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatUIScreen(
+          roomId: roomId,
+          otherUid: otherUid,
+          otherInitials: initials,
+          otherColor: const Color(0xFF1BAB8A),
+          taskTitle: requestTitle,
+          isPeminta: isPeminta,
+          ctrl: ctrl,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Shared Widgets ───────────────────────────────────────────────────────────
 
 class _Card extends StatelessWidget {
   final Widget child;
@@ -609,9 +880,8 @@ class _DetailRow extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 13,
                       color: valueColor,
-                      fontWeight: valueBold
-                          ? FontWeight.w700
-                          : FontWeight.w500)),
+                      fontWeight:
+                          valueBold ? FontWeight.w700 : FontWeight.w500)),
             ],
           ),
         ),

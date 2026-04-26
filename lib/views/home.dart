@@ -6,7 +6,8 @@ import '../models/home_model.dart';
 import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
 import 'search_tasks_screen.dart';
-import 'riwayat_tugas_screen.dart'; // ✅ GANTI import
+import 'riwayat_tugas_screen.dart';
+import 'chat_log_screen.dart'; // ← tambah import ini
 import 'step1_kategori.dart';
 
 class HomePage extends StatefulWidget {
@@ -33,10 +34,10 @@ class _HomePageState extends State<HomePage> {
         user: _user,
         requestController: _requestController,
         onAddRequest: _openAddRequest,
-        onSearchTap: _goToSearchScreen, // ✅ TAMBAH callback
+        onSearchTap: _goToSearchScreen,
       ),
-      const RiwayatTugasScreen(), // ✅ FIX: tab Tugas → Riwayat, bukan Search
-      const _PlaceholderPage(label: 'Pesan'),
+      const RiwayatTugasScreen(),
+      const ChatLogScreen(), // ← ganti PlaceholderPage dengan ini
       const _PlaceholderPage(label: 'Profil'),
     ];
   }
@@ -48,7 +49,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ✅ Navigasi ke Search sebagai halaman terpisah (bukan tab)
   void _goToSearchScreen() {
     Navigator.push(
       context,
@@ -121,13 +121,13 @@ class _HomeContent extends StatelessWidget {
   final HomeModel? user;
   final RequestController requestController;
   final VoidCallback onAddRequest;
-  final VoidCallback onSearchTap; // ✅ TAMBAH
+  final VoidCallback onSearchTap;
 
   const _HomeContent({
     required this.user,
     required this.requestController,
     required this.onAddRequest,
-    required this.onSearchTap, // ✅ TAMBAH
+    required this.onSearchTap,
   });
 
   @override
@@ -139,8 +139,6 @@ class _HomeContent extends StatelessWidget {
       ],
     );
   }
-
-  // ─── Header ────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
     return Container(
@@ -239,7 +237,6 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  // ✅ Search bar sekarang pakai onSearchTap callback (bukan Navigator langsung)
   Widget _buildSearchBar(BuildContext context) {
     return GestureDetector(
       onTap: onSearchTap,
@@ -263,8 +260,6 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  // ─── Body ──────────────────────────────────────────────────────────────────
-
   Widget _buildBody(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -273,7 +268,7 @@ class _HomeContent extends StatelessWidget {
         children: [
           _buildCategorySection(),
           const SizedBox(height: 20),
-          _buildSearchTaskBanner(context), // ✅ TAMBAH banner/tombol Search
+          _buildSearchTaskBanner(context),
           const SizedBox(height: 24),
           _buildRecentTaskSection(context),
         ],
@@ -343,7 +338,6 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  // ✅ Banner tombol menuju SearchAvailableTasksScreen
   Widget _buildSearchTaskBanner(BuildContext context) {
     return GestureDetector(
       onTap: onSearchTap,
@@ -398,8 +392,6 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  // ─── Recent Tasks ─────────────────────────────────────────────────────────
-
   Widget _buildRecentTaskSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +408,7 @@ class _HomeContent extends StatelessWidget {
               ),
             ),
             GestureDetector(
-              onTap: onSearchTap, // ✅ Pakai callback, bukan Navigator langsung
+              onTap: onSearchTap,
               child: Text(
                 'Lihat semua',
                 style: TextStyle(
