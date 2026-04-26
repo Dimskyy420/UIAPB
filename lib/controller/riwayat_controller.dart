@@ -34,37 +34,169 @@ class RiwayatController {
   // ─── Saya Minta: stream request milik user ────────────────────────────────
 
   Stream<List<RequestModel>> streamMyRequests() {
-    if (!isLoggedIn) return const Stream.empty();
+    // Jika belum login → emit error yang informatif (bukan empty)
+    if (!isLoggedIn) {
+      return Stream.error(Exception('Kamu belum login. Silakan login terlebih dahulu.'));
+    }
+
     return _firestore
         .collection('requests')
         .where('userId', isEqualTo: _userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) =>
-                RequestModel.fromMap(d.id, d.data()))
-            .toList());
+            .map((d) => RequestModel.fromMap(d.id, d.data()))
+            .toList())
+        .handleError((error) {
+      // Lempar ulang error agar UI bisa menangkap dan menampilkan retry
+      throw Exception(_parseFirestoreError(error));
+    });
   }
 
-  // Filter list request berdasarkan tab status
-  List<RequestModel> filterByStatus(
-      List<RequestModel> requests, String filterStatus) {
-    if (filterStatus == 'Semua') return requests;
-
-    final statusMap = {
-      'Aktif': activeStatuses,
-      'Selesai': ['selesai'],
-      'Batal': ['dibatalkan'],
-    };
-
-    final allowed = statusMap[filterStatus] ?? [];
-    return requests.where((r) => allowed.contains(r.status)).toList();
+  // Fallback dummy data untuk "Saya Minta" (ketika Firebase belum aktif / testing)
+  List<RequestModel> getDummyMyRequests() {
+    final now = DateTime.now();
+    return [
+      RequestModel(
+        id: 'dummy-req-1',
+        userId: 'dummy-user',
+        category: 'Antar Barang',
+        title: 'Antar Dokumen ke Kantor Pos',
+        description: 'Butuh bantuan untuk mengantar dokumen penting ke kantor pos terdekat.',
+        duration: '< 1 jam',
+        mode: 'Tatap Muka',
+        location: 'Jl. Sudirman No. 10, Jakarta',
+        date: '26 Apr 2026',
+        time: '14:00',
+        budget: 50000,
+        status: 'menunggu',
+        createdAt: now.subtract(const Duration(hours: 2)),
+      ),
+      RequestModel(
+        id: 'dummy-req-2',
+        userId: 'dummy-user',
+        category: 'Belanja',
+        title: 'Beli Obat di Apotek Century',
+        description: 'Tolong belikan obat sesuai resep dokter yang sudah saya foto.',
+        duration: '1-2 jam',
+        mode: 'Tatap Muka',
+        location: 'Apotek Century, Mall Taman Anggrek',
+        date: '25 Apr 2026',
+        time: '10:00',
+        budget: 30000,
+        status: 'berjalan',
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      RequestModel(
+        id: 'dummy-req-3',
+        userId: 'dummy-user',
+        category: 'Jasa Teknis',
+        title: 'Perbaiki Laptop yang Lemot',
+        description: 'Laptop saya sangat lemot dan butuh diperiksa serta dioptimasi.',
+        duration: '2-4 jam',
+        mode: 'Tatap Muka',
+        location: 'Depok, Jawa Barat',
+        date: '20 Apr 2026',
+        time: '09:00',
+        budget: 150000,
+        status: 'selesai',
+        createdAt: now.subtract(const Duration(days: 6)),
+      ),
+      RequestModel(
+        id: 'dummy-req-4',
+        userId: 'dummy-user',
+        category: 'Konsultasi',
+        title: 'Konsultasi Desain Logo UMKM',
+        description: 'Saya ingin konsultasi desain logo untuk toko online saya.',
+        duration: '1-2 jam',
+        mode: 'Online',
+        location: 'Online (Google Meet)',
+        date: '18 Apr 2026',
+        time: '15:00',
+        budget: 75000,
+        status: 'dibatalkan',
+        createdAt: now.subtract(const Duration(days: 8)),
+      ),
+    ];
   }
 
   // ─── Saya Bantu: stream bid milik user ────────────────────────────────────
 
   Stream<List<Map<String, dynamic>>> streamMyBids() {
-    return _bidController.streamMyBids();
+    if (!isLoggedIn) {
+      return Stream.error(Exception('Kamu belum login. Silakan login terlebih dahulu.'));
+    }
+    return _bidController.streamMyBids().handleError((error) {
+      throw Exception(_parseFirestoreError(error));
+    });
+  }
+
+  // Fallback dummy data untuk "Saya Bantu" (ketika Firebase belum aktif / testing)
+  List<Map<String, dynamic>> getDummyMyBids() {
+    final now = DateTime.now();
+    final dummyRequests = [
+      RequestModel(
+        id: 'dummy-task-1',
+        userId: 'other-user-1',
+        category: 'Antar Barang',
+        title: 'Antar Kue ke Rumah Teman',
+        description: 'Butuh seseorang untuk mengantar kue ulang tahun ke alamat tujuan.',
+        duration: '< 1 jam',
+        mode: 'Tatap Muka',
+        location: 'Kebayoran Baru, Jakarta Selatan',
+        date: '26 Apr 2026',
+        time: '12:00',
+        budget: 40000,
+        status: 'berjalan',
+        createdAt: now.subtract(const Duration(hours: 3)),
+      ),
+      RequestModel(
+        id: 'dummy-task-2',
+        userId: 'other-user-2',
+        category: 'Jasa Teknis',
+        title: 'Install Ulang Windows 10',
+        description: 'Laptop perlu diinstall ulang karena terkena virus.',
+        duration: '2-4 jam',
+        mode: 'Tatap Muka',
+        location: 'BSD City, Tangerang Selatan',
+        date: '22 Apr 2026',
+        time: '10:00',
+        budget: 200000,
+        status: 'selesai',
+        createdAt: now.subtract(const Duration(days: 4)),
+      ),
+    ];
+
+    return [
+      {
+        'bid': BidModel(
+          id: 'dummy-bid-1',
+          requestId: 'dummy-task-1',
+          helperUid: _userId.isNotEmpty ? _userId : 'dummy-user',
+          hargaTawar: 40000,
+          estimasiTotal: 47000,
+          pesan: 'Saya siap membantu mengantarkan kue!',
+          status: 'diterima',
+          createdAt: now.subtract(const Duration(hours: 2, minutes: 30)),
+        ),
+        'requestId': 'dummy-task-1',
+        'request': dummyRequests[0],
+      },
+      {
+        'bid': BidModel(
+          id: 'dummy-bid-2',
+          requestId: 'dummy-task-2',
+          helperUid: _userId.isNotEmpty ? _userId : 'dummy-user',
+          hargaTawar: 200000,
+          estimasiTotal: 222000,
+          pesan: 'Berpengalaman install ulang Windows, siap membantu.',
+          status: 'menunggu',
+          createdAt: now.subtract(const Duration(days: 3)),
+        ),
+        'requestId': 'dummy-task-2',
+        'request': dummyRequests[1],
+      },
+    ];
   }
 
   // ─── Detail: stream penawaran masuk pada 1 request ────────────────────────
@@ -102,6 +234,16 @@ class RiwayatController {
   // ─── Ambil request by ID (untuk _BidCard fetch judul) ────────────────────
 
   Future<RequestModel?> getRequestById(String requestId) async {
+    // Cek apakah ini dummy data
+    if (requestId.startsWith('dummy-')) {
+      final dummies = getDummyMyBids();
+      for (final item in dummies) {
+        if (item['requestId'] == requestId) {
+          return item['request'] as RequestModel?;
+        }
+      }
+    }
+
     try {
       final doc = await _firestore
           .collection('requests')
@@ -117,6 +259,7 @@ class RiwayatController {
   // ─── Stream jumlah penawaran (badge) ─────────────────────────────────────
 
   Stream<int> streamBidCount(String requestId) {
+    if (requestId.startsWith('dummy-')) return Stream.value(0);
     return _firestore
         .collection('requests')
         .doc(requestId)
@@ -141,7 +284,23 @@ class RiwayatController {
         requestId: requestId, bidId: bidId);
   }
 
-  // ─── Format rupiah (delegasi ke RequestController) ───────────────────────
+  // ─── Filter list request berdasarkan tab status ───────────────────────────
+
+  List<RequestModel> filterByStatus(
+      List<RequestModel> requests, String filterStatus) {
+    if (filterStatus == 'Semua') return requests;
+
+    final statusMap = {
+      'Aktif': activeStatuses,
+      'Selesai': ['selesai'],
+      'Batal': ['dibatalkan'],
+    };
+
+    final allowed = statusMap[filterStatus] ?? [];
+    return requests.where((r) => allowed.contains(r.status)).toList();
+  }
+
+  // ─── Format rupiah ────────────────────────────────────────────────────────
 
   String formatRupiah(int amount) {
     final str = amount.toString();
@@ -161,5 +320,29 @@ class RiwayatController {
     if (diff.inHours < 1) return '${diff.inMinutes} menit lalu';
     if (diff.inDays < 1) return '${diff.inHours} jam lalu';
     return '${diff.inDays} hari lalu';
+  }
+
+  // ─── Helper: parse pesan error Firestore menjadi teks yang ramah ─────────
+
+  String _parseFirestoreError(dynamic error) {
+    final msg = error.toString().toLowerCase();
+
+    if (msg.contains('permission-denied') || msg.contains('permission denied')) {
+      return 'Akses ditolak. Pastikan kamu sudah login dengan akun yang benar.';
+    }
+    if (msg.contains('unavailable') || msg.contains('network')) {
+      return 'Tidak dapat terhubung ke server. Periksa koneksi internetmu.';
+    }
+    if (msg.contains('unauthenticated')) {
+      return 'Sesi loginmu telah berakhir. Silakan login kembali.';
+    }
+    if (msg.contains('failed-precondition') || msg.contains('index')) {
+      return 'Database perlu dikonfigurasi (index belum dibuat). Hubungi admin.';
+    }
+    if (msg.contains('belum login')) {
+      return error.toString().replaceFirst('Exception: ', '');
+    }
+
+    return 'Gagal memuat data. Coba lagi beberapa saat.';
   }
 }
