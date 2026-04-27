@@ -391,7 +391,7 @@ class _ErrorState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withOpacity(0.1),
+                color: Colors.redAccent.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.cloud_off_rounded,
@@ -439,7 +439,7 @@ class _EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.iconColor = const Color(0xFFCCCCCC),
+    this.iconColor = const Color(0xFFBBBBBB),
   });
 
   @override
@@ -512,7 +512,7 @@ class _RequestCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2))
         ],
@@ -666,7 +666,7 @@ class _BidCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2))
         ],
@@ -791,7 +791,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(label,
@@ -844,7 +844,7 @@ class _BidCountBadge extends StatelessWidget {
           padding:
               const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: const Color(0xFF1BAB8A).withOpacity(0.1),
+            color: const Color(0xFF1BAB8A).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(

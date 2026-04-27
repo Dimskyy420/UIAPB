@@ -7,8 +7,9 @@ import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
 import 'search_tasks_screen.dart';
 import 'riwayat_tugas_screen.dart';
-import 'chat_log_screen.dart'; // ← tambah import ini
+import 'chat_log_screen.dart';
 import 'step1_kategori.dart';
+import 'profile_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -37,8 +38,8 @@ class _HomePageState extends State<HomePage> {
         onSearchTap: _goToSearchScreen,
       ),
       const RiwayatTugasScreen(),
-      const ChatLogScreen(), // ← ganti PlaceholderPage dengan ini
-      const _PlaceholderPage(label: 'Profil'),
+      const ChatLogScreen(),
+      ProfileScreen(user: _user),
     ];
   }
 
