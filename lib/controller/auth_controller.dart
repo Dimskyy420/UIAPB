@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/notification_service.dart';
 
 class AuthController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -141,7 +142,11 @@ class AuthController {
 
   // ─── Logout ───────────────────────────────────────────────────────────────
   Future<void> logout() async {
+    // 1. Hapus FCM token agar notifikasi tidak dikirim ke device ini
+    await NotificationService.clearFcmToken();
+    // 2. Sign out Google
     await _googleSignIn.signOut();
+    // 3. Sign out Firebase Auth
     await _auth.signOut();
   }
 }

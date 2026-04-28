@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
@@ -285,7 +284,7 @@ class _BidsSection extends StatelessWidget {
   }
 }
 
-// ─── Bid sendiri (helper view) ────────────────────────────────────────────────
+// ─── Bid sendiri (helper view) — REAL-TIME ────────────────────────────────────
 
 class _MyBidSection extends StatelessWidget {
   final RequestModel request;
@@ -300,48 +299,123 @@ class _MyBidSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (request.id == null) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionTitle(title: 'Penawaranmu'),
         const SizedBox(height: 12),
-        FutureBuilder<BidModel?>(
-          future: controller.getBidById(request.id ?? '', bidId),
-          builder: (context, snap) {
-            if (!snap.hasData) return const SizedBox.shrink();
-            final bid = snap.data!;
-            return Column(
-              children: [
-                _BidCard(
-                  bid: bid,
-                  requestId: request.id ?? '',
-                  requestTitle: request.title,
-                  requesterId: request.userId,
-                  requestStatus: request.status,
-                  controller: controller,
-                  isHighlighted: true,
-                  showActions: false, // helper tidak ada tombol apapun di sini
-                ),
-                // Helper hanya lihat tombol Chat, tidak ada tombol Selesai
-                if (bid.status == 'diterima')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: _ChatButton(
-                      requestId: request.id ?? '',
+
+        // ── Stream 1: status REQUEST real-time ──────────────────────────────
+        StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('requests')
+              .doc(request.id)
+              .snapshots(),
+          builder: (context, reqSnap) {
+            // Gunakan status terbaru; fallback ke value awal
+            final latestStatus = reqSnap.hasData && reqSnap.data!.exists
+                ? ((reqSnap.data!.data()
+                        as Map<String, dynamic>?)?['status'] as String? ??
+                    request.status)
+                : request.status;
+
+            // ── Stream 2: data BID real-time ─────────────────────────────
+            return StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('requests')
+                  .doc(request.id)
+                  .collection('penawaran')
+                  .doc(bidId)
+                  .snapshots(),
+              builder: (context, bidSnap) {
+                if (bidSnap.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(
+                          color: Color(0xFF1BAB8A), strokeWidth: 2),
+                    ),
+                  );
+                }
+                if (!bidSnap.hasData || !bidSnap.data!.exists) {
+                  return const SizedBox.shrink();
+                }
+
+                final bidData =
+                    bidSnap.data!.data() as Map<String, dynamic>;
+                final bid = BidModel.fromMap(bidSnap.data!.id, {
+                  ...bidData,
+                  'requestId': request.id,
+                });
+
+                return Column(
+                  children: [
+                    _BidCard(
+                      bid: bid,
+                      requestId: request.id!,
                       requestTitle: request.title,
                       requesterId: request.userId,
-                      helperUid: bid.helperUid,
-                      isPeminta: false,
+                      requestStatus: latestStatus, // ✅ selalu terbaru
+                      controller: controller,
+                      isHighlighted: true,
+                      showActions: false,
                     ),
-                  ),
-              ],
+
+                    if (bid.status == 'diterima') ...[
+                      const SizedBox(height: 8),
+                      // Tampilkan label selesai jika request sudah selesai
+                      if (latestStatus == 'selesai')
+                        _buildSelesaiLabel()
+                      else
+                        _ChatButton(
+                          requestId: request.id!,
+                          requestTitle: request.title,
+                          requesterId: request.userId,
+                          helperUid: bid.helperUid,
+                          isPeminta: false,
+                        ),
+                    ],
+                  ],
+                );
+              },
             );
           },
         ),
       ],
     );
   }
+
+  Widget _buildSelesaiLabel() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2196F3).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border:
+            Border.all(color: const Color(0xFF2196F3).withOpacity(0.3)),
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline_rounded,
+              size: 16, color: Color(0xFF2196F3)),
+          SizedBox(width: 6),
+          Text(
+            'Tugas Telah Selesai ✅',
+            style: TextStyle(
+                color: Color(0xFF2196F3),
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
 
 // ─── Bid Card ─────────────────────────────────────────────────────────────────
 

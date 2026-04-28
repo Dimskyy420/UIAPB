@@ -12,6 +12,7 @@ import 'search_tasks_screen.dart';
 import 'riwayat_tugas_screen.dart';
 import 'chat_log_screen.dart';
 import 'step1_kategori.dart';
+import 'profile_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

@@ -227,7 +227,7 @@ class _ChatList extends StatelessWidget {
         return ListView.separated(
           padding: EdgeInsets.zero,
           itemCount: rooms.length,
-          separatorBuilder: (_, __) => const Divider(
+          separatorBuilder: (_, _) => const Divider(
               height: 1, indent: 76, color: Color(0xFFEEEEEE)),
           itemBuilder: (_, i) => _ChatTile(
             room: rooms[i],
