@@ -30,6 +30,33 @@ class ProfileController {
         .snapshots();
   }
 
+  // ─── Stream history bantuan (task selesai) ─────────────────────────────────
+  Stream<QuerySnapshot> streamHistoryBantuan() {
+    if (uid.isEmpty) return const Stream.empty();
+    return _db
+        .collection('requests')
+        .where('helperUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'selesai')
+        .orderBy('updatedAt', descending: true)
+        .limit(20)
+        .snapshots();
+  }
+
+  // ─── Hitung jumlah user unik yang dibantu ─────────────────────────────────
+  Future<int> getTotalUserDibantu() async {
+    if (uid.isEmpty) return 0;
+    try {
+      final snap = await _db
+          .collection('reviews')
+          .where('toUid', isEqualTo: uid)
+          .get();
+      final uniqueUsers = snap.docs.map((d) => d['fromUid']).toSet();
+      return uniqueUsers.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   // ─── Hitung rata-rata rating ───────────────────────────────────────────────
   Future<double> getAverageRating() async {
     if (uid.isEmpty) return 0.0;
@@ -63,11 +90,10 @@ class ProfileController {
         'comment': comment,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      // Increment counter task selesai milik helper
       await _db.collection('users').doc(toUid).update({
         'totalTaskSelesai': FieldValue.increment(1),
       });
-      return null; // null = sukses
+      return null;
     } catch (e) {
       return e.toString();
     }

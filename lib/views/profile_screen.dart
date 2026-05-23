@@ -20,12 +20,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoggingOut = false;
   String _university = '';
   double _avgRating = 0.0;
+  int _totalUserDibantu = 0; // ← BARU
 
   @override
   void initState() {
     super.initState();
     _loadUniversity();
     _loadRating();
+    _loadTotalUserDibantu(); // ← BARU
   }
 
   Future<void> _loadUniversity() async {
@@ -45,6 +47,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadRating() async {
     final rating = await _profileController.getAverageRating();
     if (mounted) setState(() => _avgRating = rating);
+  }
+
+  // ─── BARU: Load jumlah user dibantu ───────────────────────────────────────
+  Future<void> _loadTotalUserDibantu() async {
+    final count = await _profileController.getTotalUserDibantu();
+    if (mounted) setState(() => _totalUserDibantu = count);
   }
 
   Future<void> _handleLogout() async {
@@ -128,12 +136,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirm != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
-    await _authController.logout(); // FCM token dihapus di sini
+    await _authController.logout();
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthScreen()),
-      (route) => false, // Hapus semua route → back button tidak bisa kembali
+      (route) => false,
     );
   }
 
@@ -153,11 +161,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildHeader(photoUrl, initials, name, email),
             const SizedBox(height: 16),
 
-            // ── Statistik ─────────────────────────────────────────────────
+            // ── Statistik (2x2 Grid) ───────────────────────────────────────
             _buildStatsSection(),
             const SizedBox(height: 14),
 
-            // ── Info Akun ─────────────────────────────────────────────────
+            // ── Riwayat Bantuan ── BARU ────────────────────────────────────
+            _buildHistorySection(),
+            const SizedBox(height: 14),
+
+            // ── Info Akun ──────────────────────────────────────────────────
             _buildSection(
               title: 'Informasi Akun',
               children: [
@@ -181,7 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 14),
 
-            // ── Pengaturan ────────────────────────────────────────────────
+            // ── Pengaturan ─────────────────────────────────────────────────
             _buildSection(
               title: 'Pengaturan',
               children: [
@@ -308,7 +320,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Statistik ──────────────────────────────────────────────────────────────
+  // ── Statistik 2x2 Grid ─────────────────────────────────────────────────────
 
   Widget _buildStatsSection() {
     return Padding(
@@ -319,36 +331,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final stats = snap.data ?? {};
           final taskSelesai = stats['totalTaskSelesai'] ?? 0;
           final earned = stats['totalEarned'] ?? 0;
-          final ratingStr = _avgRating > 0
-              ? _avgRating.toStringAsFixed(1)
-              : '-';
+          final ratingStr =
+              _avgRating > 0 ? _avgRating.toStringAsFixed(1) : '-';
 
           return Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+              border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
             ),
-            child: Row(
+            child: Column(
               children: [
-                _StatItem(
-                    icon: '✅',
-                    label: 'Task Selesai',
-                    value: taskSelesai.toString()),
-                _verticalDivider(),
-                _StatItem(
-                    icon: '⭐',
-                    label: 'Rating',
-                    value: ratingStr),
-                _verticalDivider(),
-                _StatItem(
-                    icon: '💰',
-                    label: 'Total Earned',
-                    value: earned > 0
-                        ? _profileController.formatRupiah(earned)
-                        : '-'),
+                // Baris 1: Task Selesai | Rating
+                Row(
+                  children: [
+                    _StatItem(
+                        icon: '✅',
+                        label: 'Task Selesai',
+                        value: taskSelesai.toString()),
+                    _verticalDivider(),
+                    _StatItem(
+                        icon: '⭐',
+                        label: 'Rating',
+                        value: ratingStr),
+                  ],
+                ),
+                const Divider(
+                    height: 20, thickness: 0.8, color: Color(0xFFF0F0F0)),
+                // Baris 2: User Dibantu | Total Earned
+                Row(
+                  children: [
+                    _StatItem(
+                        icon: '👥',
+                        label: 'User Dibantu',
+                        value: _totalUserDibantu.toString()),
+                    _verticalDivider(),
+                    _StatItem(
+                        icon: '💰',
+                        label: 'Total Earned',
+                        value: earned > 0
+                            ? _profileController.formatRupiah(earned)
+                            : '-'),
+                  ],
+                ),
               ],
             ),
           );
@@ -363,6 +389,147 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: const Color(0xFFF0F0F0),
         margin: const EdgeInsets.symmetric(horizontal: 4),
       );
+
+  // ── Riwayat Bantuan ─────────────────────────────────────────────────────────
+
+  Widget _buildHistorySection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 10),
+            child: Text(
+              'Riwayat Bantuan',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF888888),
+                  letterSpacing: 0.3),
+            ),
+          ),
+          StreamBuilder<QuerySnapshot>(
+            stream: _profileController.streamHistoryBantuan(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(
+                        color: Color(0xFF1BAB8A), strokeWidth: 2),
+                  ),
+                );
+              }
+
+              if (!snap.hasData || snap.data!.docs.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: const Color(0xFFEEEEEE), width: 0.8),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.history_rounded,
+                          size: 36, color: Color(0xFFCCCCCC)),
+                      SizedBox(height: 8),
+                      Text('Belum ada riwayat bantuan',
+                          style: TextStyle(
+                              fontSize: 13, color: Color(0xFF888888))),
+                    ],
+                  ),
+                );
+              }
+
+              final docs = snap.data!.docs;
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final kategori =
+                      data['kategori'] as String? ?? 'Bantuan';
+                  final title = data['title'] as String? ?? kategori;
+                  final totalEstimasi =
+                      (data['totalEstimasi'] as num?)?.toInt() ?? 0;
+                  final timestamp = data['updatedAt'] as Timestamp?;
+                  final date = timestamp != null
+                      ? _formatDate(timestamp.toDate())
+                      : '-';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: const Color(0xFFEEEEEE), width: 0.8),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF9F6),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                              Icons.check_circle_outline_rounded,
+                              color: Color(0xFF1BAB8A),
+                              size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1A1A1A))),
+                              const SizedBox(height: 2),
+                              Text(date,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF888888))),
+                            ],
+                          ),
+                        ),
+                        if (totalEstimasi > 0)
+                          Text(
+                            _profileController
+                                .formatRupiah(totalEstimasi),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1BAB8A)),
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Helper: Format Tanggal ─────────────────────────────────────────────────
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
 
   // ── Ulasan ─────────────────────────────────────────────────────────────────
 
@@ -396,7 +563,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               }
 
-              if (snap.hasError || !snap.hasData || snap.data!.docs.isEmpty) {
+              if (snap.hasError ||
+                  !snap.hasData ||
+                  snap.data!.docs.isEmpty) {
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -483,7 +652,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Shared Widgets ──────────────────────────────────────────────────────────
+  // ── Shared Widgets ─────────────────────────────────────────────────────────
 
   Widget _buildSection(
       {required String title, required List<Widget> children}) {
@@ -594,7 +763,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       height: 1, thickness: 0.8, indent: 64, color: Color(0xFFF0F0F0));
 }
 
-// ── Stat Item Widget ──────────────────────────────────────────────────────────
+// ── Stat Item Widget ───────────────────────────────────────────────────────────
 
 class _StatItem extends StatelessWidget {
   final String icon, label, value;
