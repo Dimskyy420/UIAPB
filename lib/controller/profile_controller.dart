@@ -25,8 +25,6 @@ class ProfileController {
     return _db
         .collection('reviews')
         .where('toUid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(10)
         .snapshots();
   }
 
@@ -90,10 +88,7 @@ class ProfileController {
         'comment': comment,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      await _db.collection('users').doc(toUid).update({
-        'totalTaskSelesai': FieldValue.increment(1),
-      });
-      return null;
+      return null; // null = sukses
     } catch (e) {
       return e.toString();
     }
