@@ -42,7 +42,7 @@ class _HomePageState extends State<HomePage> {
       ),
       const RiwayatTugasScreen(),
       const ChatLogScreen(),
-      const _ProfilePage(),
+      ProfileScreen(user: _user),
     ];
   }
 

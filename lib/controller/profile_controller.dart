@@ -25,8 +25,6 @@ class ProfileController {
     return _db
         .collection('reviews')
         .where('toUid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(10)
         .snapshots();
   }
 
@@ -62,10 +60,6 @@ class ProfileController {
         'rating': rating,
         'comment': comment,
         'createdAt': FieldValue.serverTimestamp(),
-      });
-      // Increment counter task selesai milik helper
-      await _db.collection('users').doc(toUid).update({
-        'totalTaskSelesai': FieldValue.increment(1),
       });
       return null; // null = sukses
     } catch (e) {

@@ -718,10 +718,36 @@ class _SelesaiButtonState extends State<_SelesaiButton> {
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseFirestore.instance
+      final db = FirebaseFirestore.instance;
+      
+      // 1. Update status request jadi selesai
+      await db
           .collection('requests')
           .doc(widget.requestId)
           .update({'status': 'selesai'});
+
+      // 2. Cari bid yang diterima untuk mendapatkan helperUid dan harga
+      final bidSnap = await db
+          .collection('requests')
+          .doc(widget.requestId)
+          .collection('penawaran')
+          .where('status', isEqualTo: 'diterima')
+          .limit(1)
+          .get();
+
+      if (bidSnap.docs.isNotEmpty) {
+        final bidData = bidSnap.docs.first.data();
+        final helperUid = bidData['helperUid'] as String?;
+        final hargaTawar = (bidData['hargaTawar'] as num?)?.toInt() ?? 0;
+
+        if (helperUid != null && helperUid.isNotEmpty) {
+          // 3. Tambahkan statistik helper
+          await db.collection('users').doc(helperUid).update({
+            'totalTaskSelesai': FieldValue.increment(1),
+            'totalEarned': FieldValue.increment(hargaTawar),
+          });
+        }
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

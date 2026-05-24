@@ -419,12 +419,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               }
 
-              final docs = snap.data!.docs;
+              var docs = snap.data!.docs.toList();
+              // Sort secara lokal berdasarkan createdAt (descending)
+              docs.sort((a, b) {
+                final dataA = a.data() as Map<String, dynamic>;
+                final dataB = b.data() as Map<String, dynamic>;
+                final timeA = (dataA['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                final timeB = (dataB['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                return timeB.compareTo(timeA);
+              });
+              
               return Column(
-                children: docs.map((doc) {
+                children: docs.take(3).map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final rating = (data['rating'] as num).toDouble();
                   final comment = data['comment'] as String? ?? '';
+                  final reviewerName =
+                      data['reviewerName'] as String? ?? 'Pengguna';
+                  final createdAt = data['createdAt'];
+                  String timeStr = '';
+                  if (createdAt != null) {
+                    try {
+                      final dt = (createdAt as dynamic).toDate() as DateTime;
+                      final diff = DateTime.now().difference(dt);
+                      if (diff.inDays > 0) {
+                        timeStr = '${diff.inDays} hari lalu';
+                      } else if (diff.inHours > 0) {
+                        timeStr = '${diff.inHours} jam lalu';
+                      } else {
+                        timeStr = 'Baru saja';
+                      }
+                    } catch (_) {}
+                  }
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
@@ -438,6 +464,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ── Reviewer info + timestamp ──────────────────────
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: const Color(0xFFEFF9F6),
+                              child: Text(
+                                reviewerName.isNotEmpty
+                                    ? reviewerName[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1BAB8A)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                reviewerName,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1A1A1A)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (timeStr.isNotEmpty)
+                              Text(timeStr,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFFAAAAAA))),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        // ── Bintang ───────────────────────────────────────
                         Row(
                           children: [
                             ...List.generate(
