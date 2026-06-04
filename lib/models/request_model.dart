@@ -14,6 +14,8 @@ class RequestModel {
   final int budget;
   final String status;
   final DateTime? createdAt;
+  final double? latitude;
+  final double? longitude;
 
   RequestModel({
     this.id,
@@ -29,6 +31,8 @@ class RequestModel {
     required this.budget,
     this.status = 'menunggu',
     this.createdAt,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toMap() {
@@ -45,6 +49,8 @@ class RequestModel {
       'budget': budget,
       'status': status,
       'createdAt': createdAt ?? DateTime.now(),
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -63,6 +69,8 @@ class RequestModel {
       budget: map['budget'] ?? 0,
       status: map['status'] ?? 'menunggu',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -100,6 +108,8 @@ class RequestModel {
     String? time,
     int? budget,
     String? status,
+    double? latitude,
+    double? longitude,
   }) {
     return RequestModel(
       id: id,
@@ -115,6 +125,8 @@ class RequestModel {
       budget: budget ?? this.budget,
       status: status ?? this.status,
       createdAt: createdAt,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }

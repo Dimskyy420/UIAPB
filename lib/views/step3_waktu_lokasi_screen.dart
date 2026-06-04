@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../models/request_model.dart';
 import '../../controller/request_controller.dart';
 import 'estimasi_harga_screen.dart';
+import 'map_picker_screen.dart';
 
 class Step3WaktuLokasiScreen extends StatefulWidget {
   final RequestModel draft;
@@ -21,6 +23,10 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
   late String _selectedDate;
   late String _selectedDateLabel;
   String _selectedTime = '15:00';
+
+  // Koordinat hasil map picker (null jika user belum pilih di peta)
+  double? _pickedLat;
+  double? _pickedLng;
 
   late List<Map<String, String>> _dates;
   late List<String> _times;
@@ -44,6 +50,29 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
       (_selectedMode == 'Online' || _locationCtrl.text.trim().isNotEmpty) &&
       _selectedDate.isNotEmpty &&
       _selectedTime.isNotEmpty;
+
+  Future<void> _openMapPicker() async {
+    final initial = (_pickedLat != null && _pickedLng != null)
+        ? LatLng(_pickedLat!, _pickedLng!)
+        : null;
+    final result = await Navigator.push<PickedLocation>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(
+          initialLatLng: initial,
+          initialAddress: _locationCtrl.text.trim().isEmpty
+              ? null
+              : _locationCtrl.text.trim(),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _pickedLat = result.latLng.latitude;
+      _pickedLng = result.latLng.longitude;
+      _locationCtrl.text = result.address;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +108,8 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
                     if (_selectedMode == 'Tatap Muka') ...[
                       const SizedBox(height: 16),
                       _buildLabel('Lokasi Pertemuan'),
+                      const SizedBox(height: 8),
+                      _buildMapPickerTile(),
                       const SizedBox(height: 8),
                       _buildLocationField(),
                       const SizedBox(height: 6),
@@ -235,6 +266,65 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildMapPickerTile() {
+    final hasPin = _pickedLat != null && _pickedLng != null;
+    return GestureDetector(
+      onTap: _openMapPicker,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasPin
+                ? const Color(0xFF1BAB8A)
+                : const Color(0xFFE5E5E5),
+            width: hasPin ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F6F2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.map_outlined,
+                  color: Color(0xFF1BAB8A), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasPin ? 'Lokasi dipilih di peta' : 'Pilih lokasi di peta',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasPin
+                        ? '${_pickedLat!.toStringAsFixed(5)}, ${_pickedLng!.toStringAsFixed(5)}'
+                        : 'Ketuk untuk menandai titik pertemuan',
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF888888)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Color(0xFFAAAAAA)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -439,13 +529,17 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
               child: ElevatedButton(
                 onPressed: _isValid
                     ? () {
+                        final isTatapMuka = _selectedMode == 'Tatap Muka';
                         final updated = widget.draft.copyWith(
                           mode: _selectedMode,
-                          location: _selectedMode == 'Tatap Muka'
+                          location: isTatapMuka
                               ? _locationCtrl.text.trim()
                               : 'Online',
                           date: _selectedDate,
                           time: _selectedTime,
+                          // Lat/lng hanya disertakan untuk mode tatap muka
+                          latitude: isTatapMuka ? _pickedLat : null,
+                          longitude: isTatapMuka ? _pickedLng : null,
                         );
                         Navigator.push(
                           context,

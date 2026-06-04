@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
@@ -37,6 +38,15 @@ class TaskDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildInfoCard(),
+                  if (request.latitude != null &&
+                      request.longitude != null) ...[
+                    const SizedBox(height: 16),
+                    _LocationMapCard(
+                      latitude: request.latitude!,
+                      longitude: request.longitude!,
+                      address: request.location,
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   _buildBudgetCard(),
                   const SizedBox(height: 24),
@@ -940,6 +950,85 @@ class _Chip extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: textColor)),
+    );
+  }
+}
+
+// ─── Map thumbnail untuk lokasi pertemuan ────────────────────────────────────
+
+class _LocationMapCard extends StatelessWidget {
+  final double latitude;
+  final double longitude;
+  final String address;
+
+  const _LocationMapCard({
+    required this.latitude,
+    required this.longitude,
+    required this.address,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final latLng = LatLng(latitude, longitude);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 160,
+            width: double.infinity,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: latLng, zoom: 15),
+              markers: {
+                Marker(markerId: const MarkerId('loc'), position: latLng),
+              },
+              liteModeEnabled: true, // Android: render sebagai bitmap statis
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              myLocationButtonEnabled: false,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.place_outlined,
+                    size: 16, color: Color(0xFF1BAB8A)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Titik Lokasi',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF888888),
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 2),
+                      Text(
+                        address.isEmpty
+                            ? '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}'
+                            : address,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF222222),
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
