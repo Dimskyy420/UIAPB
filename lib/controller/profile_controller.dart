@@ -35,9 +35,8 @@ class ProfileController {
         .collection('requests')
         .where('helperUid', isEqualTo: uid)
         .where('status', isEqualTo: 'selesai')
-        .orderBy('updatedAt', descending: true)
         .limit(20)
-        .snapshots();
+        .snapshots(); // orderBy dihapus → sort dilakukan client-side di view
   }
 
   // ─── Hitung jumlah user unik yang dibantu ─────────────────────────────────

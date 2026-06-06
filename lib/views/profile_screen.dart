@@ -445,7 +445,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               }
 
-              final docs = snap.data!.docs;
+              final docs = snap.data!.docs.toList();
+              // Sort client-side by updatedAt descending (tidak perlu composite index)
+              docs.sort((a, b) {
+                final dataA = a.data() as Map<String, dynamic>;
+                final dataB = b.data() as Map<String, dynamic>;
+                final tA = (dataA['updatedAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                final tB = (dataB['updatedAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
+                return tB.compareTo(tA);
+              });
               return Column(
                 children: docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
