@@ -20,12 +20,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoggingOut = false;
   String _university = '';
   double _avgRating = 0.0;
+  int _totalUserDibantu = 0; // ← BARU
 
   @override
   void initState() {
     super.initState();
     _loadUniversity();
     _loadRating();
+    _loadTotalUserDibantu(); // ← BARU
   }
 
   Future<void> _loadUniversity() async {
@@ -45,6 +47,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadRating() async {
     final rating = await _profileController.getAverageRating();
     if (mounted) setState(() => _avgRating = rating);
+  }
+
+  // ─── BARU: Load jumlah user dibantu ───────────────────────────────────────
+  Future<void> _loadTotalUserDibantu() async {
+    final count = await _profileController.getTotalUserDibantu();
+    if (mounted) setState(() => _totalUserDibantu = count);
   }
 
   Future<void> _handleLogout() async {
@@ -128,12 +136,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirm != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
-    await _authController.logout(); // FCM token dihapus di sini
+    await _authController.logout();
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthScreen()),
-      (route) => false, // Hapus semua route → back button tidak bisa kembali
+      (route) => false,
     );
   }
 
@@ -153,11 +161,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildHeader(photoUrl, initials, name, email),
             const SizedBox(height: 16),
 
-            // ── Statistik ─────────────────────────────────────────────────
+            // ── Statistik (2x2 Grid) ───────────────────────────────────────
             _buildStatsSection(),
             const SizedBox(height: 14),
 
-            // ── Info Akun ─────────────────────────────────────────────────
+            // ── Riwayat Bantuan ── BARU ────────────────────────────────────
+            _buildHistorySection(),
+            const SizedBox(height: 14),
+
+            // ── Info Akun ──────────────────────────────────────────────────
             _buildSection(
               title: 'Informasi Akun',
               children: [
@@ -181,7 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 14),
 
-            // ── Pengaturan ────────────────────────────────────────────────
+            // ── Pengaturan ─────────────────────────────────────────────────
             _buildSection(
               title: 'Pengaturan',
               children: [
@@ -304,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Statistik ──────────────────────────────────────────────────────────────
+  // ── Statistik 2x2 Grid ─────────────────────────────────────────────────────
 
   Widget _buildStatsSection() {
     return Padding(
@@ -315,19 +327,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final stats = snap.data ?? {};
           final taskSelesai = stats['totalTaskSelesai'] ?? 0;
           final earned = stats['totalEarned'] ?? 0;
-          final ratingStr = _avgRating > 0
-              ? _avgRating.toStringAsFixed(1)
-              : '-';
+          final ratingStr =
+              _avgRating > 0 ? _avgRating.toStringAsFixed(1) : '-';
 
           return Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+              border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
             ),
-            child: Row(
+            child: Column(
               children: [
                 _StatItem(
                     icon: Icons.check_circle_rounded,
@@ -474,7 +484,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       height: 1, thickness: 0.8, indent: 64, color: Color(0xFFF0F0F0));
 }
 
-// ── Stat Item Widget ──────────────────────────────────────────────────────────
+// ── Stat Item Widget ───────────────────────────────────────────────────────────
 
 class _StatItem extends StatelessWidget {
   final IconData icon;

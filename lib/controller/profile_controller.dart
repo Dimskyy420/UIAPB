@@ -28,6 +28,32 @@ class ProfileController {
         .snapshots();
   }
 
+  // ─── Stream history bantuan (task selesai) ─────────────────────────────────
+  Stream<QuerySnapshot> streamHistoryBantuan() {
+    if (uid.isEmpty) return const Stream.empty();
+    return _db
+        .collection('requests')
+        .where('helperUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'selesai')
+        .limit(20)
+        .snapshots(); // orderBy dihapus → sort dilakukan client-side di view
+  }
+
+  // ─── Hitung jumlah user unik yang dibantu ─────────────────────────────────
+  Future<int> getTotalUserDibantu() async {
+    if (uid.isEmpty) return 0;
+    try {
+      final snap = await _db
+          .collection('reviews')
+          .where('toUid', isEqualTo: uid)
+          .get();
+      final uniqueUsers = snap.docs.map((d) => d['fromUid']).toSet();
+      return uniqueUsers.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   // ─── Hitung rata-rata rating ───────────────────────────────────────────────
   Future<double> getAverageRating() async {
     if (uid.isEmpty) return 0.0;

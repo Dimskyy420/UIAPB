@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1071057876617-5veujcrk32riseqrodpanrtqmsfrbivh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.tasuru_app",
+            "certificate_hash": "0adc239461ef65323aff3c5c464f47c5753d040a"
+          }
+        },
+        {
           "client_id": "1071057876617-o7tkg5lqpafuelb5olbtc61roqhmpfa8.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

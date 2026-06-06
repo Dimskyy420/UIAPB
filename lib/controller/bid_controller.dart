@@ -49,6 +49,16 @@ class BidController {
       return 'Kamu sudah mengajukan penawaran untuk tugas ini.';
     }
 
+    // Validasi: cek status request masih 'menunggu'
+    final requestDoc = await _firestore
+        .collection('requests')
+        .doc(request.id)
+        .get();
+    final currentStatus = requestDoc.data()?['status'] ?? 'menunggu';
+    if (currentStatus != 'menunggu') {
+      return 'Tugas ini sudah memiliki helper yang dipilih.';
+    }
+
     try {
       // Simpan penawaran sebagai subcollection di dalam request
       await _firestore

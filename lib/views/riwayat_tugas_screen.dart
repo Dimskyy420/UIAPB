@@ -783,13 +783,9 @@ class _BidCardState extends State<_BidCard> {
       effectiveLabel = 'Dibatalkan';
     } else if (widget.bid.status == 'ditolak' &&
         (request?.status == 'berjalan' || request?.status == 'selesai')) {
-      // ✅ Bid ditolak karena helper lain terpilih
-      effectiveColor = const Color(0xFFFF9800);
-      effectiveLabel = 'Helper Lain Dipilih';
-    } else if (widget.bid.status == 'ditolak') {
-      // Ditolak manual oleh creator, request belum punya helper
-      effectiveColor = const Color(0xFFEF5350);
-      effectiveLabel = 'Tidak Diterima';
+      // Bid ditolak karena helper lain sudah dipilih
+      effectiveColor = const Color(0xFF9E9E9E);
+      effectiveLabel = 'Helper Lain Terpilih';
     } else {
       effectiveColor = statusColor;
       effectiveLabel = statusLabel;

@@ -198,10 +198,8 @@ class _SearchAvailableTasksScreenState
         final allRequests = docs
             .map((doc) =>
                 RequestModel.fromMap(doc.id, doc.data() as Map<String, dynamic>))
-            // ✅ Filter: sembunyikan request milik sendiri
-            .where((r) => !_requestController.isCreator(r))
-            // ✅ Filter: hanya tampilkan tugas yang masih tersedia (belum ada helper)
-            .where((r) => r.status == 'menunggu')
+            // ✅ Filter: sembunyikan request milik sendiri & yang sudah ada helper
+            .where((r) => !_requestController.isCreator(r) && r.status == 'menunggu')
             .toList();
         final filtered = _filter(allRequests);
 
