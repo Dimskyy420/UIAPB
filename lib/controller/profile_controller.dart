@@ -93,6 +93,54 @@ class ProfileController {
     }
   }
 
+  // ─── Public: data profil helper lain ──────────────────────────────────────
+
+  /// Stream data user (displayName, photoUrl, dll) dari Firestore
+  Stream<Map<String, dynamic>> streamPublicUser(String targetUid) {
+    if (targetUid.isEmpty) return Stream.value({});
+    return _db.collection('users').doc(targetUid).snapshots().map(
+          (doc) => doc.data() ?? {},
+        );
+  }
+
+  /// Stream statistik (taskSelesai, totalEarned) milik user lain
+  Stream<Map<String, dynamic>> streamPublicStats(String targetUid) {
+    if (targetUid.isEmpty) return Stream.value({});
+    return _db.collection('users').doc(targetUid).snapshots().map((doc) {
+      final data = doc.data() ?? {};
+      return {
+        'totalTaskSelesai': data['totalTaskSelesai'] ?? 0,
+        'totalEarned': data['totalEarned'] ?? 0,
+      };
+    });
+  }
+
+  /// Stream semua ulasan yang diterima user lain
+  Stream<QuerySnapshot> streamPublicReviews(String targetUid) {
+    if (targetUid.isEmpty) return const Stream.empty();
+    return _db
+        .collection('reviews')
+        .where('toUid', isEqualTo: targetUid)
+        .snapshots();
+  }
+
+  /// Rata-rata rating user lain
+  Future<double> getPublicAverageRating(String targetUid) async {
+    if (targetUid.isEmpty) return 0.0;
+    try {
+      final snap = await _db
+          .collection('reviews')
+          .where('toUid', isEqualTo: targetUid)
+          .get();
+      if (snap.docs.isEmpty) return 0.0;
+      final total = snap.docs.fold<double>(
+          0, (acc, doc) => acc + (doc['rating'] as num).toDouble());
+      return total / snap.docs.length;
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
   // ─── Format rupiah ─────────────────────────────────────────────────────────
   String formatRupiah(int amount) {
     final str = amount.toString();

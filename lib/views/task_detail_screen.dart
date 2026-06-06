@@ -5,6 +5,7 @@ import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
 import '../controller/chat_controller.dart';
 import 'chat_ui_screen.dart';
+import 'helper_profile_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final RequestModel request;
@@ -478,39 +479,63 @@ class _BidCard extends StatelessWidget {
             // ─── Header: avatar, harga, status ──────────────────────────────
             Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor:
-                      const Color(0xFF1BAB8A).withOpacity(0.15),
-                  child: Text(
-                    bid.helperUid.isNotEmpty
-                        ? bid.helperUid[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                        color: Color(0xFF1BAB8A),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13),
+                // Tap avatar → buka profil helper
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => HelperProfileScreen(
+                          helperUid: bid.helperUid),
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor:
+                        const Color(0xFF1BAB8A).withOpacity(0.15),
+                    child: Text(
+                      bid.helperUid.isNotEmpty
+                          ? bid.helperUid[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                          color: Color(0xFF1BAB8A),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        controller.formatRupiah(bid.hargaTawar),
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1BAB8A)),
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => HelperProfileScreen(
+                            helperUid: bid.helperUid),
                       ),
-                      if (bid.createdAt != null)
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          controller.timeAgo(bid.createdAt!),
+                          controller.formatRupiah(bid.hargaTawar),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF999999)),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1BAB8A)),
                         ),
-                    ],
+                        if (bid.createdAt != null)
+                          Text(
+                            controller.timeAgo(bid.createdAt!),
+                            style: const TextStyle(
+                                fontSize: 11, color: Color(0xFF999999)),
+                          ),
+                        const Text(
+                          'Lihat profil →',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF1BAB8A),
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 _Chip(
@@ -540,6 +565,33 @@ class _BidCard extends StatelessWidget {
               const SizedBox(height: 12),
               const Divider(height: 1, color: Color(0xFFF0F0F0)),
               const SizedBox(height: 10),
+              
+              // Tombol Cek Profil
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => HelperProfileScreen(
+                          helperUid: bid.helperUid),
+                    ),
+                  ),
+                  icon: const Icon(Icons.person_search_rounded, size: 16, color: Color(0xFF1BAB8A)),
+                  label: const Text('Cek Profil Helper',
+                      style: TextStyle(
+                          color: Color(0xFF1BAB8A),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF1BAB8A)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
               Row(
                 children: [
                   Expanded(

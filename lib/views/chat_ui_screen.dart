@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/chat_model.dart';
 import '../controller/chat_controller.dart';
+import '../controller/profile_controller.dart';
+import 'helper_profile_screen.dart';
 
 class ChatUIScreen extends StatefulWidget {
   final String roomId;
@@ -29,6 +31,7 @@ class ChatUIScreen extends StatefulWidget {
 class _ChatUIScreenState extends State<ChatUIScreen> {
   final TextEditingController _textCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
+  final ProfileController _profileCtrl = ProfileController();
   bool _isSending = false;
 
   @override
@@ -98,13 +101,14 @@ class _ChatUIScreenState extends State<ChatUIScreen> {
       color: const Color(0xFF1BAB8A),
       child: Row(
         children: [
+          // Tombol back
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -112,75 +116,131 @@ class _ChatUIScreenState extends State<ChatUIScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          // Avatar lawan bicara
-          Stack(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(12),
+          // Avatar + nama — tap untuk buka profil
+          Expanded(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      HelperProfileScreen(helperUid: widget.otherUid),
                 ),
-                child: Center(
-                  child: Text(
-                    widget.otherInitials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+              ),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      StreamBuilder<Map<String, dynamic>>(
+                        stream: _profileCtrl
+                            .streamPublicUser(widget.otherUid),
+                        builder: (_, snap) {
+                          final data = snap.data ?? {};
+                          final name =
+                              data['name'] as String? ?? '';
+                          final photoUrl =
+                              data['photoUrl'] as String?;
+                          final initials = name.isNotEmpty
+                              ? name
+                                  .trim()
+                                  .split(' ')
+                                  .take(2)
+                                  .map((w) => w[0].toUpperCase())
+                                  .join()
+                              : widget.otherInitials;
+                          return Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: photoUrl != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(photoUrl,
+                                        fit: BoxFit.cover),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                      Positioned(
+                        bottom: 1,
+                        right: 1,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF9FE1CB),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: const Color(0xFF1BAB8A), width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: StreamBuilder<Map<String, dynamic>>(
+                      stream:
+                          _profileCtrl.streamPublicUser(widget.otherUid),
+                      builder: (_, snap) {
+                        final data = snap.data ?? {};
+                        final name =
+                            data['name'] as String? ?? '';
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name.isNotEmpty
+                                  ? name
+                                  : (widget.isPeminta ? 'Helper' : 'Peminta'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              widget.isPeminta ? 'Helper' : 'Peminta',
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 10),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                ),
+                ],
               ),
-              Positioned(
-                bottom: 1,
-                right: 1,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF9FE1CB),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: const Color(0xFF1BAB8A), width: 1.5),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.isPeminta ? 'Helper' : 'Peminta',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                const Text(
-                  'Online · Aktif',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
             ),
           ),
-          // POV badge
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
+          // Icon profil
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    HelperProfileScreen(helperUid: widget.otherUid),
+              ),
             ),
-            child: Text(
-              widget.isPeminta ? 'POV: Peminta' : 'POV: Helper',
-              style:
-                  const TextStyle(color: Colors.white, fontSize: 11),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.person_outline_rounded,
+                  color: Colors.white, size: 20),
             ),
           ),
         ],
