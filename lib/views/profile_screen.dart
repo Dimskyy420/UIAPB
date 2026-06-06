@@ -203,10 +203,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 14),
 
-            // ── Ulasan ────────────────────────────────────────────────────
-            _buildReviewsSection(),
-            const SizedBox(height: 14),
-
             // ── Tombol Logout ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -334,17 +330,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Row(
               children: [
                 _StatItem(
-                    icon: '✅',
+                    icon: Icons.check_circle_rounded,
+                    iconColor: const Color(0xFF2ECC71),
                     label: 'Task Selesai',
                     value: taskSelesai.toString()),
                 _verticalDivider(),
                 _StatItem(
-                    icon: '⭐',
+                    icon: Icons.star_rounded,
+                    iconColor: const Color(0xFFFFA726),
                     label: 'Rating',
                     value: ratingStr),
                 _verticalDivider(),
                 _StatItem(
-                    icon: '💰',
+                    icon: Icons.account_balance_wallet_rounded,
+                    iconColor: const Color(0xFF1BAB8A),
                     label: 'Total Earned',
                     value: earned > 0
                         ? _profileController.formatRupiah(earned)
@@ -363,187 +362,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: const Color(0xFFF0F0F0),
         margin: const EdgeInsets.symmetric(horizontal: 4),
       );
-
-  // ── Ulasan ─────────────────────────────────────────────────────────────────
-
-  Widget _buildReviewsSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 10),
-            child: Text(
-              'Ulasan Diterima',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF888888),
-                  letterSpacing: 0.3),
-            ),
-          ),
-          StreamBuilder<QuerySnapshot>(
-            stream: _profileController.streamMyReviews(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(
-                        color: Color(0xFF1BAB8A), strokeWidth: 2),
-                  ),
-                );
-              }
-
-              if (snap.hasError || !snap.hasData || snap.data!.docs.isEmpty) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: const Color(0xFFEEEEEE), width: 0.8),
-                  ),
-                  child: const Column(
-                    children: [
-                      Icon(Icons.star_outline_rounded,
-                          size: 36, color: Color(0xFFCCCCCC)),
-                      SizedBox(height: 8),
-                      Text('Belum ada ulasan',
-                          style: TextStyle(
-                              fontSize: 13, color: Color(0xFF888888))),
-                    ],
-                  ),
-                );
-              }
-
-              var docs = snap.data!.docs.toList();
-              // Sort secara lokal berdasarkan createdAt (descending)
-              docs.sort((a, b) {
-                final dataA = a.data() as Map<String, dynamic>;
-                final dataB = b.data() as Map<String, dynamic>;
-                final timeA = (dataA['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
-                final timeB = (dataB['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
-                return timeB.compareTo(timeA);
-              });
-              
-              return Column(
-                children: docs.take(3).map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final rating = (data['rating'] as num).toDouble();
-                  final comment = data['comment'] as String? ?? '';
-                  final reviewerName =
-                      data['reviewerName'] as String? ?? 'Pengguna';
-                  final createdAt = data['createdAt'];
-                  String timeStr = '';
-                  if (createdAt != null) {
-                    try {
-                      final dt = (createdAt as dynamic).toDate() as DateTime;
-                      final diff = DateTime.now().difference(dt);
-                      if (diff.inDays > 0) {
-                        timeStr = '${diff.inDays} hari lalu';
-                      } else if (diff.inHours > 0) {
-                        timeStr = '${diff.inHours} jam lalu';
-                      } else {
-                        timeStr = 'Baru saja';
-                      }
-                    } catch (_) {}
-                  }
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: const Color(0xFFEEEEEE), width: 0.8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ── Reviewer info + timestamp ──────────────────────
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 14,
-                              backgroundColor: const Color(0xFFEFF9F6),
-                              child: Text(
-                                reviewerName.isNotEmpty
-                                    ? reviewerName[0].toUpperCase()
-                                    : 'U',
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1BAB8A)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                reviewerName,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1A1A1A)),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (timeStr.isNotEmpty)
-                              Text(timeStr,
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFFAAAAAA))),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        // ── Bintang ───────────────────────────────────────
-                        Row(
-                          children: [
-                            ...List.generate(
-                              5,
-                              (i) => Icon(
-                                i < rating.round()
-                                    ? Icons.star_rounded
-                                    : Icons.star_outline_rounded,
-                                color: const Color(0xFFFFA726),
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              rating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF1A1A1A)),
-                            ),
-                          ],
-                        ),
-                        if (comment.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            '"$comment"',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF666666),
-                                fontStyle: FontStyle.italic,
-                                height: 1.4),
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   // ── Shared Widgets ──────────────────────────────────────────────────────────
 
@@ -659,17 +477,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ── Stat Item Widget ──────────────────────────────────────────────────────────
 
 class _StatItem extends StatelessWidget {
-  final String icon, label, value;
+  final IconData icon;
+  final Color iconColor;
+  final String label, value;
   const _StatItem(
-      {required this.icon, required this.label, required this.value});
+      {required this.icon,
+      required this.iconColor,
+      required this.label,
+      required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Column(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 22)),
-          const SizedBox(height: 4),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(height: 6),
           Text(value,
               style: const TextStyle(
                   fontSize: 15,

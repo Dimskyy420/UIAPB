@@ -200,6 +200,8 @@ class _SearchAvailableTasksScreenState
                 RequestModel.fromMap(doc.id, doc.data() as Map<String, dynamic>))
             // ✅ Filter: sembunyikan request milik sendiri
             .where((r) => !_requestController.isCreator(r))
+            // ✅ Filter: hanya tampilkan tugas yang masih tersedia (belum ada helper)
+            .where((r) => r.status == 'menunggu')
             .toList();
         final filtered = _filter(allRequests);
 
@@ -399,6 +401,10 @@ class _SearchAvailableTasksScreenState
                       request.mode,
                       const Color(0xFF888888),
                     ),
+                    const Spacer(),
+                    // ✅ Tampilkan jumlah penawar
+                    if (request.id != null)
+                      _BidCountChip(requestId: request.id!),
                   ],
                 ),
               ],
@@ -425,6 +431,7 @@ class _SearchAvailableTasksScreenState
   }
 
   Widget _buildEmptyState({
+
     required IconData icon,
     required String title,
     required String subtitle,
@@ -464,6 +471,51 @@ class _SearchAvailableTasksScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _TaskDetailSheet(request: request, ctrl: ctrl),
+    );
+  }
+}
+
+// ─── Bid Count Chip ──────────────────────────────────────────────────────────
+
+class _BidCountChip extends StatelessWidget {
+  final String requestId;
+  const _BidCountChip({required this.requestId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('requests')
+          .doc(requestId)
+          .collection('penawaran')
+          .snapshots(),
+      builder: (_, snap) {
+        final count = snap.data?.docs.length ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C4DFF).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.people_outline_rounded,
+                  size: 11, color: Color(0xFF7C4DFF)),
+              const SizedBox(width: 3),
+              Text(
+                '$count penawar',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF7C4DFF),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
