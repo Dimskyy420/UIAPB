@@ -165,8 +165,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildStatsSection(),
             const SizedBox(height: 14),
 
-            // ── Riwayat Bantuan ── BARU ────────────────────────────────────
+            // ── Riwayat Bantuan ────────────────────────────────────────
             _buildHistorySection(),
+            const SizedBox(height: 14),
+
+            // ── Riwayat Review ─────────────────────────────────────────────
+            _buildReviewsSection(),
             const SizedBox(height: 14),
 
             // ── Info Akun ──────────────────────────────────────────────────
@@ -337,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
             ),
-            child: Column(
+            child: Row(
               children: [
                 _StatItem(
                     icon: Icons.check_circle_rounded,
@@ -372,6 +376,273 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: const Color(0xFFF0F0F0),
         margin: const EdgeInsets.symmetric(horizontal: 4),
       );
+
+  // ── Riwayat Bantuan ────────────────────────────────────────────────────────
+
+  Widget _buildHistorySection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 10),
+            child: Text('Riwayat Bantuan',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF888888),
+                    letterSpacing: 0.3)),
+          ),
+          StreamBuilder<QuerySnapshot>(
+            stream: _profileController.streamHistoryBantuan(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(
+                    child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF1BAB8A), strokeWidth: 2),
+                ));
+              }
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border:
+                        Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+                  ),
+                  child: const Text('Belum ada riwayat bantuan.',
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 13, color: Color(0xFFAAAAAA))),
+                );
+              }
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border:
+                      Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: docs.length,
+                  separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      thickness: 0.8,
+                      indent: 64,
+                      color: Color(0xFFF0F0F0)),
+                  itemBuilder: (context, i) {
+                    final reviewData = docs[i].data() as Map<String, dynamic>;
+                    final requestId = reviewData['requestId'] ?? '';
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('requests')
+                          .doc(requestId)
+                          .get(),
+                      builder: (context, reqSnap) {
+                        final reqData = reqSnap.hasData
+                            ? reqSnap.data!.data() as Map<String, dynamic>?
+                            : null;
+                        final title = reqData?['title'] ?? 'Tugas';
+                        final category = reqData?['category'] ?? '';
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF9F6),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.check_circle_rounded,
+                                    color: Color(0xFF1BAB8A), size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(title,
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF1A1A1A),
+                                            fontWeight: FontWeight.w600)),
+                                    if (category.isNotEmpty)
+                                      Text(category,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFFAAAAAA))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Riwayat Review ──────────────────────────────────────────────────────────
+
+  Widget _buildReviewsSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 10),
+            child: Text('Ulasan Diterima',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF888888),
+                    letterSpacing: 0.3)),
+          ),
+          StreamBuilder<QuerySnapshot>(
+            stream: _profileController.streamMyReviews(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(
+                    child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF1BAB8A), strokeWidth: 2),
+                ));
+              }
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: const Color(0xFFEEEEEE), width: 0.8),
+                  ),
+                  child: const Text('Belum ada ulasan.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 13, color: Color(0xFFAAAAAA))),
+                );
+              }
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border:
+                      Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: docs.length,
+                  separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      thickness: 0.8,
+                      indent: 16,
+                      color: Color(0xFFF0F0F0)),
+                  itemBuilder: (context, i) {
+                    final data = docs[i].data() as Map<String, dynamic>;
+                    final rating = (data['rating'] as num?)?.toDouble() ?? 0;
+                    final comment = data['comment'] ?? '';
+                    final fromUid = data['fromUid'] ?? '';
+                    final stars = rating.round();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF8E1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.star_rounded,
+                                color: Color(0xFFFFA726), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: List.generate(
+                                    5,
+                                    (idx) => Icon(
+                                      idx < stars
+                                          ? Icons.star_rounded
+                                          : Icons.star_outline_rounded,
+                                      color: const Color(0xFFFFA726),
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                                if (comment.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(comment,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF444444),
+                                          height: 1.4)),
+                                ],
+                                const SizedBox(height: 4),
+                                FutureBuilder<DocumentSnapshot>(
+                                  future: FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(fromUid)
+                                      .get(),
+                                  builder: (context, userSnap) {
+                                    final data = userSnap.hasData
+                                        ? userSnap.data!.data()
+                                            as Map<String, dynamic>?
+                                        : null;
+                                    final userName =
+                                        data?['name'] ?? 'Pengguna';
+                                    return Text('— $userName',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFFAAAAAA),
+                                            fontStyle: FontStyle.italic));
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   // ── Shared Widgets ──────────────────────────────────────────────────────────
 

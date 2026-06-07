@@ -28,15 +28,16 @@ class ProfileController {
         .snapshots();
   }
 
-  // ─── Stream history bantuan (task selesai) ─────────────────────────────────
+  // ─── Stream history bantuan (dari reviews yang diterima) ───────────────────
   Stream<QuerySnapshot> streamHistoryBantuan() {
     if (uid.isEmpty) return const Stream.empty();
+    // Gunakan reviews sebagai sumber data — setiap review punya requestId
+    // yang menunjukkan task mana yang diselesaikan user sebagai helper
     return _db
-        .collection('requests')
-        .where('helperUid', isEqualTo: uid)
-        .where('status', isEqualTo: 'selesai')
+        .collection('reviews')
+        .where('toUid', isEqualTo: uid)
         .limit(20)
-        .snapshots(); // orderBy dihapus → sort dilakukan client-side di view
+        .snapshots();
   }
 
   // ─── Hitung jumlah user unik yang dibantu ─────────────────────────────────

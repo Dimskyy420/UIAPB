@@ -127,20 +127,27 @@ class BidController {
     if (_userId.isEmpty) return 'Kamu harus login terlebih dahulu.';
 
     try {
-      final batch = _firestore.batch();
-
-      // Update status bid yang diterima → 'diterima'
+      // Ambil helperUid dari dokumen bid
       final bidRef = _firestore
           .collection('requests')
           .doc(requestId)
           .collection('penawaran')
           .doc(bidId);
+      final bidSnap = await bidRef.get();
+      final helperUid = bidSnap.data()?['helperUid'] ?? '';
+
+      final batch = _firestore.batch();
+
+      // Update status bid yang diterima → 'diterima'
       batch.update(bidRef, {'status': 'diterima'});
 
-      // Update status request → 'berjalan'
+      // Update status request → 'berjalan' + simpan helperUid
       final requestRef =
           _firestore.collection('requests').doc(requestId);
-      batch.update(requestRef, {'status': 'berjalan'});
+      batch.update(requestRef, {
+        'status': 'berjalan',
+        'helperUid': helperUid, // ← simpan siapa helpernya
+      });
 
       await batch.commit();
 
