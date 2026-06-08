@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
@@ -983,15 +984,38 @@ class _LocationMapCard extends StatelessWidget {
           SizedBox(
             height: 160,
             width: double.infinity,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(target: latLng, zoom: 15),
-              markers: {
-                Marker(markerId: const MarkerId('loc'), position: latLng),
-              },
-              liteModeEnabled: true, // Android: render sebagai bitmap statis
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              myLocationButtonEnabled: false,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: latLng,
+                initialZoom: 15,
+                // Thumbnail statis: nonaktifkan semua interaksi
+                interactionOptions:
+                    const InteractionOptions(flags: InteractiveFlag.none),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.tasuru_app',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: latLng,
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.topCenter,
+                      child: const Icon(Icons.location_on_rounded,
+                          color: Color(0xFF1BAB8A), size: 36),
+                    ),
+                  ],
+                ),
+                const RichAttributionWidget(
+                  attributions: [
+                    TextSourceAttribution('© OpenStreetMap contributors'),
+                  ],
+                ),
+              ],
             ),
           ),
           Padding(

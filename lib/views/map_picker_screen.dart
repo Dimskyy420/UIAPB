@@ -1,6 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
@@ -29,7 +29,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   // Default: Telkom University (sesuai placeholder lokasi awal)
   static const LatLng _defaultCenter = LatLng(-6.973134, 107.630303);
 
-  final Completer<GoogleMapController> _mapController = Completer();
+  final MapController _mapController = MapController();
   late LatLng _pinned;
   String _address = '';
   bool _isGeocoding = false;
@@ -57,7 +57,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
     if (pos != null) {
       _pinned = LatLng(pos.latitude, pos.longitude);
-      await _animateCameraTo(_pinned);
+      _animateCameraTo(_pinned);
       await _reverseGeocode(_pinned);
     } else {
       // Pakai default center, reverse-geocode juga
@@ -90,13 +90,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     }
   }
 
-  Future<void> _animateCameraTo(LatLng target) async {
-    final ctrl = await _mapController.future;
-    await ctrl.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: target, zoom: 16),
-      ),
-    );
+  void _animateCameraTo(LatLng target) {
+    _mapController.move(target, 16);
   }
 
   // ─── Reverse geocode: LatLng → alamat ───────────────────────────────────
@@ -142,12 +137,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     }
   }
 
-  void _onMapTap(LatLng position) {
-    setState(() => _pinned = position);
-    _reverseGeocode(position);
-  }
-
-  void _onMarkerDragEnd(LatLng position) {
+  void _onMapTap(TapPosition tapPosition, LatLng position) {
     setState(() => _pinned = position);
     _reverseGeocode(position);
   }
@@ -169,7 +159,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     }
     final target = LatLng(pos.latitude, pos.longitude);
     setState(() => _pinned = target);
-    await _animateCameraTo(target);
+    _animateCameraTo(target);
     await _reverseGeocode(target);
   }
 
@@ -191,29 +181,42 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: _pinned,
-                      zoom: 16,
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: _pinned,
+                      initialZoom: 16,
+                      onTap: _onMapTap,
                     ),
-                    onMapCreated: (c) {
-                      if (!_mapController.isCompleted) {
-                        _mapController.complete(c);
-                      }
-                    },
-                    onTap: _onMapTap,
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('picked'),
-                        position: _pinned,
-                        draggable: true,
-                        onDragEnd: _onMarkerDragEnd,
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.tasuru_app',
                       ),
-                    },
-                    myLocationEnabled: true,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    mapToolbarEnabled: false,
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _pinned,
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.topCenter,
+                            child: const Icon(
+                              Icons.location_on_rounded,
+                              color: Color(0xFF1BAB8A),
+                              size: 44,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const RichAttributionWidget(
+                        attributions: [
+                          TextSourceAttribution(
+                            '© OpenStreetMap contributors',
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   if (_isLoadingInitial)
                     Container(
@@ -276,7 +279,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF1A1A1A))),
-                Text('Ketuk peta atau geser pin untuk memilih titik',
+                Text('Ketuk peta untuk menandai titik',
                     style: TextStyle(
                         fontSize: 11, color: Color(0xFF888888))),
               ],
