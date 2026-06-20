@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfileController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -25,34 +27,9 @@ class ProfileController {
     return _db
         .collection('reviews')
         .where('toUid', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .limit(10)
         .snapshots();
-  }
-
-  // ─── Stream history bantuan (dari reviews yang diterima) ───────────────────
-  Stream<QuerySnapshot> streamHistoryBantuan() {
-    if (uid.isEmpty) return const Stream.empty();
-    // Gunakan reviews sebagai sumber data — setiap review punya requestId
-    // yang menunjukkan task mana yang diselesaikan user sebagai helper
-    return _db
-        .collection('reviews')
-        .where('toUid', isEqualTo: uid)
-        .limit(20)
-        .snapshots();
-  }
-
-  // ─── Hitung jumlah user unik yang dibantu ─────────────────────────────────
-  Future<int> getTotalUserDibantu() async {
-    if (uid.isEmpty) return 0;
-    try {
-      final snap = await _db
-          .collection('reviews')
-          .where('toUid', isEqualTo: uid)
-          .get();
-      final uniqueUsers = snap.docs.map((d) => d['fromUid']).toSet();
-      return uniqueUsers.length;
-    } catch (_) {
-      return 0;
-    }
   }
 
   // ─── Hitung rata-rata rating ───────────────────────────────────────────────
@@ -88,61 +65,49 @@ class ProfileController {
         'comment': comment,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      // Increment counter task selesai milik helper
+      await _db.collection('users').doc(toUid).update({
+        'totalTaskSelesai': FieldValue.increment(1),
+      });
       return null; // null = sukses
     } catch (e) {
       return e.toString();
     }
   }
 
-  // ─── Public: data profil helper lain ──────────────────────────────────────
-
-  /// Stream data user (displayName, photoUrl, dll) dari Firestore
-  Stream<Map<String, dynamic>> streamPublicUser(String targetUid) {
-    if (targetUid.isEmpty) return Stream.value({});
-    return _db.collection('users').doc(targetUid).snapshots().map(
-          (doc) => doc.data() ?? {},
-        );
-  }
-
-  /// Stream statistik (taskSelesai, totalEarned) milik user lain
-  Stream<Map<String, dynamic>> streamPublicStats(String targetUid) {
-    if (targetUid.isEmpty) return Stream.value({});
-    return _db.collection('users').doc(targetUid).snapshots().map((doc) {
-      final data = doc.data() ?? {};
-      return {
-        'totalTaskSelesai': data['totalTaskSelesai'] ?? 0,
-        'totalEarned': data['totalEarned'] ?? 0,
-      };
-    });
-  }
-
-  /// Stream semua ulasan yang diterima user lain
-  Stream<QuerySnapshot> streamPublicReviews(String targetUid) {
-    if (targetUid.isEmpty) return const Stream.empty();
-    return _db
-        .collection('reviews')
-        .where('toUid', isEqualTo: targetUid)
-        .snapshots();
-  }
-
-  /// Rata-rata rating user lain
-  Future<double> getPublicAverageRating(String targetUid) async {
-    if (targetUid.isEmpty) return 0.0;
+  // ─── Upload foto profil ────────────────────────────────────────────────────
+  /// Upload [imageFile] ke Firebase Storage, lalu update photoUrl di Firestore
+  /// dan Firebase Auth. Kembalikan URL baru jika berhasil, null jika gagal.
+  Future<String?> uploadProfilePhoto(File imageFile) async {
+    if (uid.isEmpty) return null;
     try {
-      final snap = await _db
-          .collection('reviews')
-          .where('toUid', isEqualTo: targetUid)
-          .get();
-      if (snap.docs.isEmpty) return 0.0;
-      final total = snap.docs.fold<double>(
-          0, (acc, doc) => acc + (doc['rating'] as num).toDouble());
-      return total / snap.docs.length;
-    } catch (_) {
-      return 0.0;
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('$uid.jpg');
+
+      final uploadTask = ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // Update Firestore
+      await _db.collection('users').doc(uid).update({'photoUrl': downloadUrl});
+
+      // Update Firebase Auth profile
+      await _auth.currentUser?.updatePhotoURL(downloadUrl);
+
+      return downloadUrl;
+    } catch (e) {
+      return null;
     }
   }
 
   // ─── Format rupiah ─────────────────────────────────────────────────────────
+
   String formatRupiah(int amount) {
     final str = amount.toString();
     final result = StringBuffer();

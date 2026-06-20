@@ -4,8 +4,8 @@ import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
 import '../controller/chat_controller.dart';
+import '../widgets/profile_avatar.dart';
 import 'chat_ui_screen.dart';
-import 'helper_profile_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final RequestModel request;
@@ -285,7 +285,7 @@ class _BidsSection extends StatelessWidget {
   }
 }
 
-// ─── Bid sendiri (helper view) — REAL-TIME ────────────────────────────────────
+// ─── Bid sendiri (helper view) ────────────────────────────────────────────────
 
 class _MyBidSection extends StatelessWidget {
   final RequestModel request;
@@ -300,123 +300,48 @@ class _MyBidSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (request.id == null) return const SizedBox.shrink();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionTitle(title: 'Penawaranmu'),
         const SizedBox(height: 12),
-
-        // ── Stream 1: status REQUEST real-time ──────────────────────────────
-        StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('requests')
-              .doc(request.id)
-              .snapshots(),
-          builder: (context, reqSnap) {
-            // Gunakan status terbaru; fallback ke value awal
-            final latestStatus = reqSnap.hasData && reqSnap.data!.exists
-                ? ((reqSnap.data!.data()
-                        as Map<String, dynamic>?)?['status'] as String? ??
-                    request.status)
-                : request.status;
-
-            // ── Stream 2: data BID real-time ─────────────────────────────
-            return StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('requests')
-                  .doc(request.id)
-                  .collection('penawaran')
-                  .doc(bidId)
-                  .snapshots(),
-              builder: (context, bidSnap) {
-                if (bidSnap.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(
-                          color: Color(0xFF1BAB8A), strokeWidth: 2),
-                    ),
-                  );
-                }
-                if (!bidSnap.hasData || !bidSnap.data!.exists) {
-                  return const SizedBox.shrink();
-                }
-
-                final bidData =
-                    bidSnap.data!.data() as Map<String, dynamic>;
-                final bid = BidModel.fromMap(bidSnap.data!.id, {
-                  ...bidData,
-                  'requestId': request.id,
-                });
-
-                return Column(
-                  children: [
-                    _BidCard(
-                      bid: bid,
-                      requestId: request.id!,
+        FutureBuilder<BidModel?>(
+          future: controller.getBidById(request.id ?? '', bidId),
+          builder: (context, snap) {
+            if (!snap.hasData) return const SizedBox.shrink();
+            final bid = snap.data!;
+            return Column(
+              children: [
+                _BidCard(
+                  bid: bid,
+                  requestId: request.id ?? '',
+                  requestTitle: request.title,
+                  requesterId: request.userId,
+                  requestStatus: request.status,
+                  controller: controller,
+                  isHighlighted: true,
+                  showActions: false, // helper tidak ada tombol apapun di sini
+                ),
+                // Helper hanya lihat tombol Chat, tidak ada tombol Selesai
+                if (bid.status == 'diterima')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: _ChatButton(
+                      requestId: request.id ?? '',
                       requestTitle: request.title,
                       requesterId: request.userId,
-                      requestStatus: latestStatus, // ✅ selalu terbaru
-                      controller: controller,
-                      isHighlighted: true,
-                      showActions: false,
+                      helperUid: bid.helperUid,
+                      isPeminta: false,
                     ),
-
-                    if (bid.status == 'diterima') ...[
-                      const SizedBox(height: 8),
-                      // Tampilkan label selesai jika request sudah selesai
-                      if (latestStatus == 'selesai')
-                        _buildSelesaiLabel()
-                      else
-                        _ChatButton(
-                          requestId: request.id!,
-                          requestTitle: request.title,
-                          requesterId: request.userId,
-                          helperUid: bid.helperUid,
-                          isPeminta: false,
-                        ),
-                    ],
-                  ],
-                );
-              },
+                  ),
+              ],
             );
           },
         ),
       ],
     );
   }
-
-  Widget _buildSelesaiLabel() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2196F3).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: const Color(0xFF2196F3).withOpacity(0.3)),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_outline_rounded,
-              size: 16, color: Color(0xFF2196F3)),
-          SizedBox(width: 6),
-          Text(
-            'Tugas Telah Selesai ✅',
-            style: TextStyle(
-                color: Color(0xFF2196F3),
-                fontSize: 13,
-                fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
 }
-
 
 // ─── Bid Card ─────────────────────────────────────────────────────────────────
 
@@ -476,73 +401,63 @@ class _BidCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── Header: avatar, harga, status ──────────────────────────────
-            Row(
-              children: [
-                // Tap avatar → buka profil helper
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => HelperProfileScreen(
-                          helperUid: bid.helperUid),
+            // ─── Header: avatar + nama helper, harga, status ────────────────
+            FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(bid.helperUid)
+                  .get(),
+              builder: (context, helperSnap) {
+                final helperData =
+                    helperSnap.data?.data() as Map<String, dynamic>?;
+                final helperName = helperData?['name'] ??
+                    helperData?['displayName'] ??
+                    'Helper';
+                return Row(
+                  children: [
+                    FirestoreProfileAvatar(
+                      uid: bid.helperUid,
+                      radius: 18,
+                      backgroundColor: const Color(0xFF1BAB8A),
                     ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor:
-                        const Color(0xFF1BAB8A).withOpacity(0.15),
-                    child: Text(
-                      bid.helperUid.isNotEmpty
-                          ? bid.helperUid[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(
-                          color: Color(0xFF1BAB8A),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => HelperProfileScreen(
-                            helperUid: bid.helperUid),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            helperName.toString(),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF222222)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            controller.formatRupiah(bid.hargaTawar),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1BAB8A)),
+                          ),
+                          if (bid.createdAt != null)
+                            Text(
+                              controller.timeAgo(bid.createdAt!),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF999999)),
+                            ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          controller.formatRupiah(bid.hargaTawar),
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1BAB8A)),
-                        ),
-                        if (bid.createdAt != null)
-                          Text(
-                            controller.timeAgo(bid.createdAt!),
-                            style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF999999)),
-                          ),
-                        const Text(
-                          'Lihat profil →',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF1BAB8A),
-                              fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                _Chip(
-                    label: statusLabel,
-                    bgColor: statusColor.withOpacity(0.12),
-                    textColor: statusColor),
-              ],
+                    _Chip(
+                        label: statusLabel,
+                        bgColor: statusColor.withOpacity(0.12),
+                        textColor: statusColor),
+                  ],
+                );
+              },
             ),
 
             // ─── Pesan helper ────────────────────────────────────────────────
@@ -565,33 +480,6 @@ class _BidCard extends StatelessWidget {
               const SizedBox(height: 12),
               const Divider(height: 1, color: Color(0xFFF0F0F0)),
               const SizedBox(height: 10),
-              
-              // Tombol Cek Profil
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => HelperProfileScreen(
-                          helperUid: bid.helperUid),
-                    ),
-                  ),
-                  icon: const Icon(Icons.person_search_rounded, size: 16, color: Color(0xFF1BAB8A)),
-                  label: const Text('Cek Profil Helper',
-                      style: TextStyle(
-                          color: Color(0xFF1BAB8A),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF1BAB8A)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
               Row(
                 children: [
                   Expanded(
@@ -770,36 +658,10 @@ class _SelesaiButtonState extends State<_SelesaiButton> {
     setState(() => _isLoading = true);
 
     try {
-      final db = FirebaseFirestore.instance;
-      
-      // 1. Update status request jadi selesai
-      await db
+      await FirebaseFirestore.instance
           .collection('requests')
           .doc(widget.requestId)
           .update({'status': 'selesai'});
-
-      // 2. Cari bid yang diterima untuk mendapatkan helperUid dan harga
-      final bidSnap = await db
-          .collection('requests')
-          .doc(widget.requestId)
-          .collection('penawaran')
-          .where('status', isEqualTo: 'diterima')
-          .limit(1)
-          .get();
-
-      if (bidSnap.docs.isNotEmpty) {
-        final bidData = bidSnap.docs.first.data();
-        final helperUid = bidData['helperUid'] as String?;
-        final hargaTawar = (bidData['hargaTawar'] as num?)?.toInt() ?? 0;
-
-        if (helperUid != null && helperUid.isNotEmpty) {
-          // 3. Tambahkan statistik helper
-          await db.collection('users').doc(helperUid).update({
-            'totalTaskSelesai': FieldValue.increment(1),
-            'totalEarned': FieldValue.increment(hargaTawar),
-          });
-        }
-      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -921,6 +783,20 @@ class _ChatButton extends StatelessWidget {
         ? otherUid.substring(0, 2).toUpperCase()
         : otherUid.toUpperCase();
 
+    // Fetch photo URL dari Firestore untuk user lawan
+    String? otherPhotoUrl;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(otherUid)
+          .get();
+      final data = doc.data();
+      final url = data?['photoUrl'] as String?;
+      if (url != null && url.isNotEmpty) otherPhotoUrl = url;
+    } catch (_) {}
+
+    if (!context.mounted) return;
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatUIScreen(
@@ -928,6 +804,7 @@ class _ChatButton extends StatelessWidget {
           otherUid: otherUid,
           otherInitials: initials,
           otherColor: const Color(0xFF1BAB8A),
+          otherPhotoUrl: otherPhotoUrl,
           taskTitle: requestTitle,
           isPeminta: isPeminta,
           ctrl: ctrl,
