@@ -5,7 +5,6 @@ import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
 import '../controller/chat_controller.dart';
 import 'chat_ui_screen.dart';
-import 'helper_profile_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final RequestModel request;
@@ -479,63 +478,39 @@ class _BidCard extends StatelessWidget {
             // ─── Header: avatar, harga, status ──────────────────────────────
             Row(
               children: [
-                // Tap avatar → buka profil helper
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => HelperProfileScreen(
-                          helperUid: bid.helperUid),
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor:
-                        const Color(0xFF1BAB8A).withOpacity(0.15),
-                    child: Text(
-                      bid.helperUid.isNotEmpty
-                          ? bid.helperUid[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(
-                          color: Color(0xFF1BAB8A),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13),
-                    ),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor:
+                      const Color(0xFF1BAB8A).withOpacity(0.15),
+                  child: Text(
+                    bid.helperUid.isNotEmpty
+                        ? bid.helperUid[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                        color: Color(0xFF1BAB8A),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => HelperProfileScreen(
-                            helperUid: bid.helperUid),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        controller.formatRupiah(bid.hargaTawar),
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1BAB8A)),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      if (bid.createdAt != null)
                         Text(
-                          controller.formatRupiah(bid.hargaTawar),
+                          controller.timeAgo(bid.createdAt!),
                           style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1BAB8A)),
+                              fontSize: 11, color: Color(0xFF999999)),
                         ),
-                        if (bid.createdAt != null)
-                          Text(
-                            controller.timeAgo(bid.createdAt!),
-                            style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF999999)),
-                          ),
-                        const Text(
-                          'Lihat profil →',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF1BAB8A),
-                              fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
                 _Chip(
@@ -565,33 +540,6 @@ class _BidCard extends StatelessWidget {
               const SizedBox(height: 12),
               const Divider(height: 1, color: Color(0xFFF0F0F0)),
               const SizedBox(height: 10),
-              
-              // Tombol Cek Profil
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => HelperProfileScreen(
-                          helperUid: bid.helperUid),
-                    ),
-                  ),
-                  icon: const Icon(Icons.person_search_rounded, size: 16, color: Color(0xFF1BAB8A)),
-                  label: const Text('Cek Profil Helper',
-                      style: TextStyle(
-                          color: Color(0xFF1BAB8A),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF1BAB8A)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
               Row(
                 children: [
                   Expanded(
@@ -770,36 +718,10 @@ class _SelesaiButtonState extends State<_SelesaiButton> {
     setState(() => _isLoading = true);
 
     try {
-      final db = FirebaseFirestore.instance;
-      
-      // 1. Update status request jadi selesai
-      await db
+      await FirebaseFirestore.instance
           .collection('requests')
           .doc(widget.requestId)
           .update({'status': 'selesai'});
-
-      // 2. Cari bid yang diterima untuk mendapatkan helperUid dan harga
-      final bidSnap = await db
-          .collection('requests')
-          .doc(widget.requestId)
-          .collection('penawaran')
-          .where('status', isEqualTo: 'diterima')
-          .limit(1)
-          .get();
-
-      if (bidSnap.docs.isNotEmpty) {
-        final bidData = bidSnap.docs.first.data();
-        final helperUid = bidData['helperUid'] as String?;
-        final hargaTawar = (bidData['hargaTawar'] as num?)?.toInt() ?? 0;
-
-        if (helperUid != null && helperUid.isNotEmpty) {
-          // 3. Tambahkan statistik helper
-          await db.collection('users').doc(helperUid).update({
-            'totalTaskSelesai': FieldValue.increment(1),
-            'totalEarned': FieldValue.increment(hargaTawar),
-          });
-        }
-      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

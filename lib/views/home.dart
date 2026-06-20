@@ -7,15 +7,13 @@ import '../controller/request_controller.dart';
 import '../models/home_model.dart';
 import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
+import '../widgets/notification_popup.dart';
 import 'auth_screen.dart';
 import 'search_tasks_screen.dart';
 import 'riwayat_tugas_screen.dart';
 import 'chat_log_screen.dart';
 import 'step1_kategori.dart';
 import 'profile_screen.dart';
-import 'task_detail_screen.dart';
-import '../controller/riwayat_controller.dart';
-import '../controller/bid_controller.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -45,7 +43,7 @@ class _HomePageState extends State<HomePage> {
       ),
       const RiwayatTugasScreen(),
       const ChatLogScreen(),
-      ProfileScreen(user: _user),
+      const _ProfilePage(),
     ];
   }
 
@@ -65,24 +63,26 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton(
-              onPressed: _openAddRequest,
-              backgroundColor: const Color(0xFF1BAB8A),
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: CustomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+    return NotificationPopupListener(
+      child: Scaffold(
+        backgroundColor: Colors.grey[200],
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _pages,
+        ),
+        floatingActionButton: _currentIndex == 0
+            ? FloatingActionButton(
+                onPressed: _openAddRequest,
+                backgroundColor: const Color(0xFF1BAB8A),
+                shape: const CircleBorder(),
+                child: const Icon(Icons.add, color: Colors.white, size: 28),
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        bottomNavigationBar: CustomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+        ),
       ),
     );
   }
@@ -743,13 +743,11 @@ class _HomeContent extends StatelessWidget {
             final requests = snapshot.data!.docs
                 .map((doc) => RequestModel.fromMap(
                     doc.id, doc.data() as Map<String, dynamic>))
-                // Filter: sembunyikan request milik sendiri
-                .where((r) => !requestController.isCreator(r))
                 .toList();
 
             return Column(
               children: requests
-                  .map((r) => _buildTaskCard(context, r, requestController))
+                  .map((r) => _buildTaskCard(r, requestController))
                   .toList(),
             );
           },
@@ -758,7 +756,7 @@ class _HomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTaskCard(BuildContext context, RequestModel request, RequestController ctrl) {
+  Widget _buildTaskCard(RequestModel request, RequestController ctrl) {
     final colors = [
       const Color(0xFF1BAB8A),
       const Color(0xFF7C4DFF),
@@ -777,408 +775,95 @@ class _HomeContent extends StatelessWidget {
     final bool isNew = request.createdAt != null &&
         DateTime.now().difference(request.createdAt!).inHours < 3;
 
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => _HomeTaskSheet(request: request, ctrl: ctrl),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: avatarColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  initials.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: avatarColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                initials.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        request.category,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF888888),
-                        ),
-                      ),
-                      if (isNew) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF6B35),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'BARU',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    request.title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    ctrl.formatRupiah(request.budget),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF1BAB8A),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFFCCCCCC)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Bottom Sheet Apply Tugas (dari Home) ──────────────────────────────────────
-
-class _HomeTaskSheet extends StatefulWidget {
-  final RequestModel request;
-  final RequestController ctrl;
-
-  const _HomeTaskSheet({required this.request, required this.ctrl});
-
-  @override
-  State<_HomeTaskSheet> createState() => _HomeTaskSheetState();
-}
-
-class _HomeTaskSheetState extends State<_HomeTaskSheet> {
-  final BidController _bidController = BidController();
-  final RequestController _reqController = RequestController();
-  bool _isLoading = false;
-  bool _alreadyBid = false;
-  bool _checkingBid = true;
-  bool _isOwner = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isOwner = _reqController.isCreator(widget.request);
-    _checkBidStatus();
-  }
-
-  Future<void> _checkBidStatus() async {
-    if (_isOwner || widget.request.id == null) {
-      setState(() => _checkingBid = false);
-      return;
-    }
-    final result = await _bidController.hasAlreadyBid(widget.request.id!);
-    if (mounted) {
-      setState(() {
-        _alreadyBid = result;
-        _checkingBid = false;
-      });
-    }
-  }
-
-  Future<void> _ajukan() async {
-    setState(() => _isLoading = true);
-    final error = await _bidController.ajukanPenawaran(
-      request: widget.request,
-      pesan: 'Saya siap membantu!',
-    );
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    if (error == null) {
-      setState(() => _alreadyBid = true);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Penawaran berhasil dikirim! 🎉'),
-        backgroundColor: const Color(0xFF1BAB8A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(error),
-        backgroundColor: Colors.red.shade400,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final r = widget.request;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      builder: (_, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFF5F6F8),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFDDDDDD),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: scrollCtrl,
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
                     Text(
-                      r.title,
+                      request.category,
                       style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A1A1A)),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1BAB8A).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        r.category,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1BAB8A)),
+                        fontSize: 12,
+                        color: Color(0xFF888888),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (r.description.isNotEmpty) ...[
-                      const Text('Deskripsi',
+                    if (isNew) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6B35),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'BARU',
                           style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF555555))),
-                      const SizedBox(height: 6),
-                      Text(r.description,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF444444),
-                              height: 1.5)),
-                      const SizedBox(height: 16),
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ],
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFEEEEEE)),
-                      ),
-                      child: Column(
-                        children: [
-                          _row('Tanggal', r.date, Icons.calendar_today_outlined),
-                          const SizedBox(height: 12),
-                          _row('Waktu', r.time, Icons.schedule_outlined),
-                          const SizedBox(height: 12),
-                          _row('Durasi', r.duration, Icons.timer_outlined),
-                          const SizedBox(height: 12),
-                          _row(
-                              'Mode',
-                              r.mode,
-                              r.mode == 'Tatap Muka'
-                                  ? Icons.people_outlined
-                                  : Icons.videocam_outlined),
-                          if (r.location.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            _row('Lokasi', r.location,
-                                Icons.location_on_outlined),
-                          ],
-                          const SizedBox(height: 12),
-                          _row(
-                              'Budget',
-                              widget.ctrl.formatRupiah(r.budget),
-                              Icons.payments_outlined,
-                              valueColor: const Color(0xFF1BAB8A),
-                              valueBold: true),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: _isOwner
-                          // State 0: ini tugas sendiri → tidak bisa apply
-                          ? OutlinedButton.icon(
-                              onPressed: null,
-                              icon: const Icon(Icons.person_outline_rounded,
-                                  color: Color(0xFF888888), size: 18),
-                              label: const Text('Ini tugas kamu',
-                                  style: TextStyle(
-                                      color: Color(0xFF888888),
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600)),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                    color: Color(0xFFDDDDDD)),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(14)),
-                              ),
-                            )
-                          : _checkingBid
-                          ? OutlinedButton(
-                              onPressed: null,
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                    color: Color(0xFFDDDDDD)),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14)),
-                              ),
-                              child: const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF1BAB8A)),
-                              ),
-                            )
-                          : _alreadyBid
-                              ? ElevatedButton.icon(
-                                  onPressed: null,
-                                  icon: const Icon(Icons.check_circle_outline,
-                                      color: Colors.white, size: 18),
-                                  label: const Text('Sudah Ditawar',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey.shade400,
-                                    disabledBackgroundColor:
-                                        Colors.grey.shade400,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(14)),
-                                  ),
-                                )
-                              : ElevatedButton.icon(
-                                  onPressed: _isLoading ? null : _ajukan,
-                                  icon: _isLoading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2))
-                                      : const Icon(Icons.handshake_outlined,
-                                          color: Colors.white, size: 18),
-                                  label: Text(
-                                      _isLoading
-                                          ? 'Mengirim...'
-                                          : 'Ajukan Penawaran',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF1BAB8A),
-                                    disabledBackgroundColor:
-                                        const Color(0xFF1BAB8A)
-                                            .withValues(alpha: 0.6),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(14)),
-                                  ),
-                                ),
-                    ),
                   ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(String label, String value, IconData icon,
-      {Color valueColor = const Color(0xFF333333), bool valueBold = false}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: const Color(0xFF1BAB8A)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
+                const SizedBox(height: 3),
+                Text(
+                  request.title,
                   style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF888888),
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(value.isEmpty ? '-' : value,
-                  style: TextStyle(
-                      fontSize: 13,
-                      color: valueColor,
-                      fontWeight:
-                          valueBold ? FontWeight.w700 : FontWeight.w500)),
-            ],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  ctrl.formatRupiah(request.budget),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF1BAB8A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFFCCCCCC)),
+        ],
+      ),
     );
   }
 }

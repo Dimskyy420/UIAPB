@@ -20,14 +20,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoggingOut = false;
   String _university = '';
   double _avgRating = 0.0;
-  int _totalUserDibantu = 0; // ← BARU
 
   @override
   void initState() {
     super.initState();
     _loadUniversity();
     _loadRating();
-    _loadTotalUserDibantu(); // ← BARU
   }
 
   Future<void> _loadUniversity() async {
@@ -47,12 +45,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadRating() async {
     final rating = await _profileController.getAverageRating();
     if (mounted) setState(() => _avgRating = rating);
-  }
-
-  // ─── BARU: Load jumlah user dibantu ───────────────────────────────────────
-  Future<void> _loadTotalUserDibantu() async {
-    final count = await _profileController.getTotalUserDibantu();
-    if (mounted) setState(() => _totalUserDibantu = count);
   }
 
   Future<void> _handleLogout() async {
@@ -136,12 +128,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirm != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
-    await _authController.logout();
+    await _authController.logout(); // FCM token dihapus di sini
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthScreen()),
-      (route) => false,
+      (route) => false, // Hapus semua route → back button tidak bisa kembali
     );
   }
 
@@ -161,19 +153,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildHeader(photoUrl, initials, name, email),
             const SizedBox(height: 16),
 
-            // ── Statistik (2x2 Grid) ───────────────────────────────────────
+            // ── Statistik ─────────────────────────────────────────────────
             _buildStatsSection(),
             const SizedBox(height: 14),
 
-            // ── Riwayat Bantuan ────────────────────────────────────────
-            _buildHistorySection(),
-            const SizedBox(height: 14),
-
-            // ── Riwayat Review ─────────────────────────────────────────────
-            _buildReviewsSection(),
-            const SizedBox(height: 14),
-
-            // ── Info Akun ──────────────────────────────────────────────────
+            // ── Info Akun ─────────────────────────────────────────────────
             _buildSection(
               title: 'Informasi Akun',
               children: [
@@ -197,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 14),
 
-            // ── Pengaturan ─────────────────────────────────────────────────
+            // ── Pengaturan ────────────────────────────────────────────────
             _buildSection(
               title: 'Pengaturan',
               children: [
@@ -217,6 +201,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () {}),
               ],
             ),
+            const SizedBox(height: 14),
+
+            // ── Ulasan ────────────────────────────────────────────────────
+            _buildReviewsSection(),
             const SizedBox(height: 14),
 
             // ── Tombol Logout ─────────────────────────────────────────────
@@ -320,7 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Statistik 2x2 Grid ─────────────────────────────────────────────────────
+  // ── Statistik ──────────────────────────────────────────────────────────────
 
   Widget _buildStatsSection() {
     return Padding(
@@ -331,33 +319,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final stats = snap.data ?? {};
           final taskSelesai = stats['totalTaskSelesai'] ?? 0;
           final earned = stats['totalEarned'] ?? 0;
-          final ratingStr =
-              _avgRating > 0 ? _avgRating.toStringAsFixed(1) : '-';
+          final ratingStr = _avgRating > 0
+              ? _avgRating.toStringAsFixed(1)
+              : '-';
 
           return Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+              border:
+                  Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
             ),
             child: Row(
               children: [
                 _StatItem(
-                    icon: Icons.check_circle_rounded,
-                    iconColor: const Color(0xFF2ECC71),
+                    icon: '✅',
                     label: 'Task Selesai',
                     value: taskSelesai.toString()),
                 _verticalDivider(),
                 _StatItem(
-                    icon: Icons.star_rounded,
-                    iconColor: const Color(0xFFFFA726),
+                    icon: '⭐',
                     label: 'Rating',
                     value: ratingStr),
                 _verticalDivider(),
                 _StatItem(
-                    icon: Icons.account_balance_wallet_rounded,
-                    iconColor: const Color(0xFF1BAB8A),
+                    icon: '💰',
                     label: 'Total Earned',
                     value: earned > 0
                         ? _profileController.formatRupiah(earned)
@@ -377,130 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 4),
       );
 
-  // ── Riwayat Bantuan ────────────────────────────────────────────────────────
-
-  Widget _buildHistorySection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 10),
-            child: Text('Riwayat Bantuan',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF888888),
-                    letterSpacing: 0.3)),
-          ),
-          StreamBuilder<QuerySnapshot>(
-            stream: _profileController.streamHistoryBantuan(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                    child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(
-                      color: Color(0xFF1BAB8A), strokeWidth: 2),
-                ));
-              }
-              final docs = snap.data?.docs ?? [];
-              if (docs.isEmpty) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
-                  ),
-                  child: const Text('Belum ada riwayat bantuan.',
-                      textAlign: TextAlign.center,
-                      style:
-                          TextStyle(fontSize: 13, color: Color(0xFFAAAAAA))),
-                );
-              }
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border:
-                      Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: docs.length,
-                  separatorBuilder: (_, __) => const Divider(
-                      height: 1,
-                      thickness: 0.8,
-                      indent: 64,
-                      color: Color(0xFFF0F0F0)),
-                  itemBuilder: (context, i) {
-                    final reviewData = docs[i].data() as Map<String, dynamic>;
-                    final requestId = reviewData['requestId'] ?? '';
-                    return FutureBuilder<DocumentSnapshot>(
-                      future: FirebaseFirestore.instance
-                          .collection('requests')
-                          .doc(requestId)
-                          .get(),
-                      builder: (context, reqSnap) {
-                        final reqData = reqSnap.hasData
-                            ? reqSnap.data!.data() as Map<String, dynamic>?
-                            : null;
-                        final title = reqData?['title'] ?? 'Tugas';
-                        final category = reqData?['category'] ?? '';
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEFF9F6),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(Icons.check_circle_rounded,
-                                    color: Color(0xFF1BAB8A), size: 18),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(title,
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Color(0xFF1A1A1A),
-                                            fontWeight: FontWeight.w600)),
-                                    if (category.isNotEmpty)
-                                      Text(category,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Color(0xFFAAAAAA))),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Riwayat Review ──────────────────────────────────────────────────────────
+  // ── Ulasan ─────────────────────────────────────────────────────────────────
 
   Widget _buildReviewsSection() {
     return Padding(
@@ -510,26 +374,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 10),
-            child: Text('Ulasan Diterima',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF888888),
-                    letterSpacing: 0.3)),
+            child: Text(
+              'Ulasan Diterima',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF888888),
+                  letterSpacing: 0.3),
+            ),
           ),
           StreamBuilder<QuerySnapshot>(
             stream: _profileController.streamMyReviews(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(
-                    child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(
-                      color: Color(0xFF1BAB8A), strokeWidth: 2),
-                ));
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(
+                        color: Color(0xFF1BAB8A), strokeWidth: 2),
+                  ),
+                );
               }
-              final docs = snap.data?.docs ?? [];
-              if (docs.isEmpty) {
+
+              if (snap.hasError || !snap.hasData || snap.data!.docs.isEmpty) {
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -539,103 +406,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     border: Border.all(
                         color: const Color(0xFFEEEEEE), width: 0.8),
                   ),
-                  child: const Text('Belum ada ulasan.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 13, color: Color(0xFFAAAAAA))),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.star_outline_rounded,
+                          size: 36, color: Color(0xFFCCCCCC)),
+                      SizedBox(height: 8),
+                      Text('Belum ada ulasan',
+                          style: TextStyle(
+                              fontSize: 13, color: Color(0xFF888888))),
+                    ],
+                  ),
                 );
               }
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border:
-                      Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: docs.length,
-                  separatorBuilder: (_, __) => const Divider(
-                      height: 1,
-                      thickness: 0.8,
-                      indent: 16,
-                      color: Color(0xFFF0F0F0)),
-                  itemBuilder: (context, i) {
-                    final data = docs[i].data() as Map<String, dynamic>;
-                    final rating = (data['rating'] as num?)?.toDouble() ?? 0;
-                    final comment = data['comment'] ?? '';
-                    final fromUid = data['fromUid'] ?? '';
-                    final stars = rating.round();
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF8E1),
-                              borderRadius: BorderRadius.circular(10),
+
+              final docs = snap.data!.docs;
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final rating = (data['rating'] as num).toDouble();
+                  final comment = data['comment'] as String? ?? '';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: const Color(0xFFEEEEEE), width: 0.8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            ...List.generate(
+                              5,
+                              (i) => Icon(
+                                i < rating.round()
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                color: const Color(0xFFFFA726),
+                                size: 16,
+                              ),
                             ),
-                            child: const Icon(Icons.star_rounded,
-                                color: Color(0xFFFFA726), size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: List.generate(
-                                    5,
-                                    (idx) => Icon(
-                                      idx < stars
-                                          ? Icons.star_rounded
-                                          : Icons.star_outline_rounded,
-                                      color: const Color(0xFFFFA726),
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                                if (comment.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(comment,
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF444444),
-                                          height: 1.4)),
-                                ],
-                                const SizedBox(height: 4),
-                                FutureBuilder<DocumentSnapshot>(
-                                  future: FirebaseFirestore.instance
-                                      .collection('users')
-                                      .doc(fromUid)
-                                      .get(),
-                                  builder: (context, userSnap) {
-                                    final data = userSnap.hasData
-                                        ? userSnap.data!.data()
-                                            as Map<String, dynamic>?
-                                        : null;
-                                    final userName =
-                                        data?['name'] ?? 'Pengguna';
-                                    return Text('— $userName',
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFFAAAAAA),
-                                            fontStyle: FontStyle.italic));
-                                  },
-                                ),
-                              ],
+                            const SizedBox(width: 6),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Color(0xFF1A1A1A)),
                             ),
+                          ],
+                        ),
+                        if (comment.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            '"$comment"',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF666666),
+                                fontStyle: FontStyle.italic,
+                                height: 1.4),
                           ),
                         ],
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),
@@ -755,33 +594,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       height: 1, thickness: 0.8, indent: 64, color: Color(0xFFF0F0F0));
 }
 
-// ── Stat Item Widget ───────────────────────────────────────────────────────────
+// ── Stat Item Widget ──────────────────────────────────────────────────────────
 
 class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String label, value;
+  final String icon, label, value;
   const _StatItem(
-      {required this.icon,
-      required this.iconColor,
-      required this.label,
-      required this.value});
+      {required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Column(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(height: 6),
+          Text(icon, style: const TextStyle(fontSize: 22)),
+          const SizedBox(height: 4),
           Text(value,
               style: const TextStyle(
                   fontSize: 15,
