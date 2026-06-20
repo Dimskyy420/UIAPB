@@ -4,6 +4,7 @@ import '../controller/auth_controller.dart';
 import '../controller/profile_controller.dart';
 import '../models/home_model.dart';
 import 'auth_screen.dart';
+import 'notification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final HomeModel? user;
@@ -286,7 +287,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     iconBg: const Color(0xFFFFF3E0),
                     label: 'Notifikasi',
                     subtitle: 'Atur preferensi notifikasi',
-                    onTap: () {}),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                      );
+                    }),
                 _divider(),
                 _buildMenuTile(
                     icon: Icons.lock_rounded,
