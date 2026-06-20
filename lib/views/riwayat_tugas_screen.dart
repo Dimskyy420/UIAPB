@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
-import '../controller/review_controller.dart';
-import '../widgets/rating_dialog.dart';
 import 'task_detail_screen.dart';
 
 class RiwayatTugasScreen extends StatefulWidget {
@@ -474,20 +472,11 @@ class _EmptyState extends StatelessWidget {
 
 // ─── Request Card ─────────────────────────────────────────────────────────────
 
-class _RequestCard extends StatefulWidget {
+class _RequestCard extends StatelessWidget {
   final RequestModel request;
   final RiwayatController controller;
 
   const _RequestCard({required this.request, required this.controller});
-
-  @override
-  State<_RequestCard> createState() => _RequestCardState();
-}
-
-class _RequestCardState extends State<_RequestCard> {
-  final ReviewController _reviewCtrl = ReviewController();
-  bool _hasReviewed = false;
-  bool _loadingReview = true;
 
   static const _statusColor = {
     'menunggu': Color(0xFFFFA726),
@@ -502,46 +491,7 @@ class _RequestCardState extends State<_RequestCard> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.request.status == 'selesai') _checkReviewed();
-  }
-
-  Future<void> _checkReviewed() async {
-    final result = await _reviewCtrl.hasReviewed(widget.request.id ?? '');
-    if (mounted) setState(() { _hasReviewed = result; _loadingReview = false; });
-  }
-
-  Future<void> _onBeriNilai() async {
-    // Dapatkan UID helper dari bid yang diterima
-    final helperUid =
-        await _reviewCtrl.getHelperUidForRequest(widget.request.id ?? '');
-    if (!mounted) return;
-    if (helperUid == null || helperUid.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tidak dapat menemukan data helper.'),
-          backgroundColor: Color(0xFFE74C3C),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    final submitted = await showRatingDialog(
-      context: context,
-      toUid: helperUid,
-      requestId: widget.request.id ?? '',
-      toName: 'Helper',
-    );
-    if (submitted && mounted) {
-      setState(() => _hasReviewed = true);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final request = widget.request;
-    final controller = widget.controller;
     final colorIndex =
         (request.title.isNotEmpty ? request.title.codeUnitAt(0) : 0) %
             _avatarColors.length;
@@ -553,7 +503,6 @@ class _RequestCardState extends State<_RequestCard> {
         _statusColor[request.status] ?? const Color(0xFF888888);
     final statusLabel =
         RiwayatController.requestStatusLabel[request.status] ?? request.status;
-    final isSelesai = request.status == 'selesai';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -642,47 +591,6 @@ class _RequestCardState extends State<_RequestCard> {
                         controller: controller),
                   ],
                 ),
-                // ── Tombol Beri Nilai (hanya jika selesai) ─────────────────
-                if (isSelesai && !_loadingReview) ...[
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, color: Color(0xFFF0F0F0)),
-                  const SizedBox(height: 10),
-                  _hasReviewed
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.check_circle_rounded,
-                                size: 14, color: Color(0xFF1BAB8A)),
-                            SizedBox(width: 5),
-                            Text('Sudah Dinilai',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF1BAB8A),
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        )
-                      : SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _onBeriNilai,
-                            icon: const Icon(Icons.star_rounded,
-                                size: 15, color: Color(0xFFFFA726)),
-                            label: const Text('Beri Nilai',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1BAB8A))),
-                            style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8),
-                              side: const BorderSide(
-                                  color: Color(0xFF1BAB8A), width: 1.2),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                ],
               ],
             ),
           ),
@@ -694,7 +602,7 @@ class _RequestCardState extends State<_RequestCard> {
 
 // ─── Bid Card ─────────────────────────────────────────────────────────────────
 
-class _BidCard extends StatefulWidget {
+class _BidCard extends StatelessWidget {
   final BidModel bid;
   final String requestId;
   final RiwayatController controller;
@@ -706,15 +614,6 @@ class _BidCard extends StatefulWidget {
     required this.controller,
     this.cachedRequest,
   });
-
-  @override
-  State<_BidCard> createState() => _BidCardState();
-}
-
-class _BidCardState extends State<_BidCard> {
-  final ReviewController _reviewCtrl = ReviewController();
-  bool _hasReviewed = false;
-  bool _loadingReview = true;
 
   static const _statusColor = {
     'menunggu': Color(0xFFFFA726),
@@ -728,42 +627,19 @@ class _BidCardState extends State<_BidCard> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _checkReviewed();
-  }
-
-  Future<void> _checkReviewed() async {
-    final result = await _reviewCtrl.hasReviewed(widget.requestId);
-    if (mounted) setState(() { _hasReviewed = result; _loadingReview = false; });
-  }
-
-  Future<void> _onBeriNilai(String requesterUid, String requesterName) async {
-    final submitted = await showRatingDialog(
-      context: context,
-      toUid: requesterUid,
-      requestId: widget.requestId,
-      toName: requesterName.isNotEmpty ? requesterName : 'Peminta',
-    );
-    if (submitted && mounted) {
-      setState(() => _hasReviewed = true);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final statusColor =
-        _statusColor[widget.bid.status] ?? const Color(0xFF888888);
+        _statusColor[bid.status] ?? const Color(0xFF888888);
     final statusLabel =
-        RiwayatController.bidStatusLabel[widget.bid.status] ?? widget.bid.status;
+        RiwayatController.bidStatusLabel[bid.status] ?? bid.status;
 
     // Jika ada cache (dari dummy), pakai langsung tanpa FutureBuilder
-    if (widget.cachedRequest != null) {
-      return _buildCard(context, widget.cachedRequest!, statusColor, statusLabel);
+    if (cachedRequest != null) {
+      return _buildCard(context, cachedRequest!, statusColor, statusLabel);
     }
 
     return FutureBuilder<RequestModel?>(
-      future: widget.controller.getRequestById(widget.requestId),
+      future: controller.getRequestById(requestId),
       builder: (context, snap) {
         final request = snap.data;
         return _buildCard(context, request, statusColor, statusLabel);
@@ -773,6 +649,7 @@ class _BidCardState extends State<_BidCard> {
 
   Widget _buildCard(BuildContext context, RequestModel? request,
       Color statusColor, String statusLabel) {
+    // Override status tampilan jika request sudah selesai / dibatalkan
     final Color effectiveColor;
     final String effectiveLabel;
     if (request?.status == 'selesai') {
@@ -781,11 +658,6 @@ class _BidCardState extends State<_BidCard> {
     } else if (request?.status == 'dibatalkan') {
       effectiveColor = const Color(0xFFEF5350);
       effectiveLabel = 'Dibatalkan';
-    } else if (widget.bid.status == 'ditolak' &&
-        (request?.status == 'berjalan' || request?.status == 'selesai')) {
-      // Bid ditolak karena helper lain sudah dipilih
-      effectiveColor = const Color(0xFF9E9E9E);
-      effectiveLabel = 'Helper Lain Terpilih';
     } else {
       effectiveColor = statusColor;
       effectiveLabel = statusLabel;
@@ -799,8 +671,6 @@ class _BidCardState extends State<_BidCard> {
     final initials = title.isNotEmpty
         ? title.trim().split(' ').take(2).map((w) => w[0]).join()
         : '??';
-    final isRequestSelesai = request?.status == 'selesai';
-    final requesterUid = request?.userId ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -827,8 +697,8 @@ class _BidCardState extends State<_BidCard> {
                     MaterialPageRoute(
                       builder: (_) => TaskDetailScreen(
                         request: request,
-                        controller: widget.controller,
-                        highlightBidId: widget.bid.id,
+                        controller: controller,
+                        highlightBidId: bid.id,
                       ),
                     ),
                   ),
@@ -880,60 +750,17 @@ class _BidCardState extends State<_BidCard> {
                     _MetaChip(
                         icon: Icons.payments_outlined,
                         label:
-                            'Penawaranmu: ${widget.controller.formatRupiah(widget.bid.hargaTawar)}',
+                            'Penawaranmu: ${controller.formatRupiah(bid.hargaTawar)}',
                         color: const Color(0xFF1BAB8A)),
                     const Spacer(),
-                    if (widget.bid.createdAt != null)
+                    if (bid.createdAt != null)
                       Text(
-                        widget.controller.timeAgo(widget.bid.createdAt!),
+                        controller.timeAgo(bid.createdAt!),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF999999)),
                       ),
                   ],
                 ),
-                // ── Tombol Beri Nilai (hanya jika request selesai) ─────────
-                if (isRequestSelesai && !_loadingReview) ...[
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, color: Color(0xFFF0F0F0)),
-                  const SizedBox(height: 10),
-                  _hasReviewed
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.check_circle_rounded,
-                                size: 14, color: Color(0xFF1BAB8A)),
-                            SizedBox(width: 5),
-                            Text('Sudah Dinilai',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF1BAB8A),
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        )
-                      : SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: requesterUid.isNotEmpty
-                                ? () => _onBeriNilai(requesterUid, title)
-                                : null,
-                            icon: const Icon(Icons.star_rounded,
-                                size: 15, color: Color(0xFFFFA726)),
-                            label: const Text('Nilai Peminta',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1BAB8A))),
-                            style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8),
-                              side: const BorderSide(
-                                  color: Color(0xFF1BAB8A), width: 1.2),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                ],
               ],
             ),
           ),
