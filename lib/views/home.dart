@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../controller/home_controller.dart';
 import '../controller/request_controller.dart';
 import '../models/home_model.dart';
 import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
+import '../widgets/profile_avatar.dart';
 import 'search_tasks_screen.dart';
 import 'riwayat_tugas_screen.dart';
 import 'chat_log_screen.dart';
@@ -219,22 +221,37 @@ class _HomeContent extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    final photoUrl = user?.photoUrl;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final initials = user?.initials ?? 'U';
-    return CircleAvatar(
-      radius: 22,
-      backgroundColor: Colors.orange.shade400,
-      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-      child: photoUrl == null
-          ? Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            )
-          : null,
+
+    if (uid.isEmpty) {
+      return ProfileAvatar(
+        photoUrl: user?.photoUrl,
+        initials: initials,
+        radius: 22,
+        backgroundColor: Colors.orange.shade400,
+        showBorder: false,
+      );
+    }
+
+    // Stream foto profil terbaru dari Firestore agar langsung update
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data() as Map<String, dynamic>?;
+        final photoUrl = data?['photoUrl'] as String?;
+        final latestPhotoUrl = (photoUrl != null && photoUrl.isNotEmpty)
+            ? photoUrl
+            : user?.photoUrl;
+
+        return ProfileAvatar(
+          photoUrl: latestPhotoUrl,
+          initials: initials,
+          radius: 22,
+          backgroundColor: Colors.orange.shade400,
+          showBorder: false,
+        );
+      },
     );
   }
 

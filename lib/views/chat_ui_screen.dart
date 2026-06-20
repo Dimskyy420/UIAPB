@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/chat_model.dart';
 import '../controller/chat_controller.dart';
+import '../widgets/profile_avatar.dart';
 
 class ChatUIScreen extends StatefulWidget {
   final String roomId;
   final String otherUid;
   final String otherInitials;
   final Color otherColor;
+  final String? otherPhotoUrl;
   final String taskTitle;
   final bool isPeminta;
   final ChatController ctrl;
@@ -17,6 +19,7 @@ class ChatUIScreen extends StatefulWidget {
     required this.otherUid,
     required this.otherInitials,
     required this.otherColor,
+    this.otherPhotoUrl,
     required this.taskTitle,
     required this.isPeminta,
     required this.ctrl,
@@ -115,22 +118,14 @@ class _ChatUIScreenState extends State<ChatUIScreen> {
           // Avatar lawan bicara
           Stack(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.otherInitials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ProfileAvatar(
+                  photoUrl: widget.otherPhotoUrl,
+                  initials: widget.otherInitials,
+                  radius: 20,
+                  backgroundColor: Colors.white.withOpacity(0.25),
+                  initialsColor: Colors.white,
                 ),
               ),
               Positioned(

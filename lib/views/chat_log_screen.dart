@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/chat_model.dart';
 import '../controller/chat_controller.dart';
+import '../widgets/profile_avatar.dart';
 import 'chat_ui_screen.dart';
 
 class ChatLogScreen extends StatefulWidget {
@@ -286,6 +287,7 @@ class _ChatTile extends StatelessWidget {
             : 'Pengguna';
         final initials = _getInitials(name.toString(), otherUid);
         final isOnline = data?['isOnline'] as bool? ?? false;
+        final photoUrl = data?['photoUrl'] as String?;
 
         return InkWell(
           onTap: () {
@@ -296,6 +298,7 @@ class _ChatTile extends StatelessWidget {
                   otherUid: otherUid,
                   otherInitials: initials,
                   otherColor: avatarColor,
+                  otherPhotoUrl: (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : null,
                   taskTitle: room.requestTitle,
                   isPeminta: isRequester,
                   ctrl: ctrl,
@@ -312,23 +315,11 @@ class _ChatTile extends StatelessWidget {
                 // ─── Avatar ───────────────────────────────────────────────
                 Stack(
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: avatarColor,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Center(
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                    ProfileAvatar(
+                      photoUrl: (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : null,
+                      initials: initials,
+                      radius: 24,
+                      backgroundColor: avatarColor,
                     ),
                     // Online dot
                     Positioned(

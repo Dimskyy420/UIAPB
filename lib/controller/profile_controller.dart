@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfileController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -73,7 +75,39 @@ class ProfileController {
     }
   }
 
+  // ─── Upload foto profil ────────────────────────────────────────────────────
+  /// Upload [imageFile] ke Firebase Storage, lalu update photoUrl di Firestore
+  /// dan Firebase Auth. Kembalikan URL baru jika berhasil, null jika gagal.
+  Future<String?> uploadProfilePhoto(File imageFile) async {
+    if (uid.isEmpty) return null;
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('$uid.jpg');
+
+      final uploadTask = ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // Update Firestore
+      await _db.collection('users').doc(uid).update({'photoUrl': downloadUrl});
+
+      // Update Firebase Auth profile
+      await _auth.currentUser?.updatePhotoURL(downloadUrl);
+
+      return downloadUrl;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ─── Format rupiah ─────────────────────────────────────────────────────────
+
   String formatRupiah(int amount) {
     final str = amount.toString();
     final result = StringBuffer();
