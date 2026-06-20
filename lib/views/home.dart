@@ -7,6 +7,7 @@ import '../controller/request_controller.dart';
 import '../models/home_model.dart';
 import '../models/request_model.dart';
 import '../widgets/custom_navigation.dart';
+import '../widgets/profile_avatar.dart';
 import 'auth_screen.dart';
 import 'search_tasks_screen.dart';
 import 'riwayat_tugas_screen.dart';
@@ -496,22 +497,33 @@ class _HomeContent extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    final photoUrl = user?.photoUrl;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final initials = user?.initials ?? 'U';
-    return CircleAvatar(
-      radius: 22,
-      backgroundColor: Colors.orange.shade400,
-      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-      child: photoUrl == null
-          ? Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            )
-          : null,
+
+    if (uid.isEmpty) {
+      return ProfileAvatar(
+        initials: initials,
+        radius: 22,
+        backgroundColor: Colors.orange.shade400,
+        photoUrl: user?.photoUrl,
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        String? photoUrl = user?.photoUrl;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          photoUrl = snapshot.data!.get('photoUrl') as String?;
+        }
+
+        return ProfileAvatar(
+          initials: initials,
+          radius: 22,
+          backgroundColor: Colors.orange.shade400,
+          photoUrl: (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : null,
+        );
+      },
     );
   }
 
