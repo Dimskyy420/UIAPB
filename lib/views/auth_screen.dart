@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../controller/auth_controller.dart';
-import '../widgets/forgot_password_dialog.dart';
 import 'home.dart';
+import 'otp_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -76,17 +76,32 @@ class _AuthScreenState extends State<AuthScreen>
     }
 
     setState(() => _isLoading = true);
-    final error = await _authController.signInWithEmail(
+    final result = await _authController.signInWithEmail(
       email: email,
       password: password,
     );
     if (!mounted) return;
+
     setState(() => _isLoading = false);
 
-    if (error == null) {
-      _goHome();
-    } else {
+    final error = result['error'] as String?;
+    if (error != null) {
       _showError(error);
+      return;
+    }
+
+    // Gunakan flag dari controller — tidak perlu baca Firestore lagi
+    final needsOtp = result['needsOtp'] as bool? ?? false;
+    if (needsOtp) {
+      // Belum terverifikasi → navigasi ke OTP Screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => OtpScreen(email: email),
+        ),
+      );
+    } else {
+      // Sudah verified → navigasi langsung ke Home tanpa tunggu StreamBuilder
+      _goHome();
     }
   }
 
@@ -101,12 +116,31 @@ class _AuthScreenState extends State<AuthScreen>
       confirmPassword: _regConfirmCtrl.text,
     );
     if (!mounted) return;
+
     setState(() => _isLoading = false);
 
-    if (error == null) {
-      _goHome();
-    } else {
+    if (error != null) {
       _showError(error);
+    } else {
+      // Pendaftaran sukses! Pindah ke tab Login
+      setState(() {
+        _isLogin = true;
+      });
+      // Tampilkan pesan sukses warna hijau
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Pendaftaran berhasil! Silakan masuk.'),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      // Kosongkan form daftar
+      _regNameCtrl.clear();
+      _regUniversityCtrl.clear();
+      _regEmailCtrl.clear();
+      _regPasswordCtrl.clear();
+      _regConfirmCtrl.clear();
     }
   }
 
@@ -125,12 +159,14 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Gagal Masuk/Daftar', style: TextStyle(color: Colors.red)),
         content: Text(message),
-        backgroundColor: Colors.red.shade400,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
+        ],
       ),
     );
   }
@@ -199,7 +235,7 @@ class _AuthScreenState extends State<AuthScreen>
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Center(
@@ -242,7 +278,7 @@ class _AuthScreenState extends State<AuthScreen>
                       ? 'Masuk ke akun TASURU kamu'
                       : 'Bergabung dengan komunitas mahasiswa TASURU',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: sw * 0.031,
                   ),
                 ),
@@ -285,7 +321,7 @@ class _AuthScreenState extends State<AuthScreen>
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.07),
+                      color: Colors.black.withValues(alpha: 0.07),
                       blurRadius: 5,
                       offset: const Offset(0, 2),
                     )
@@ -329,13 +365,7 @@ class _AuthScreenState extends State<AuthScreen>
         Align(
           alignment: Alignment.centerRight,
           child: GestureDetector(
-            onTap: () {
-              showDialog(
-                context: context,
-                barrierDismissible: true,
-                builder: (context) => const ForgotPasswordDialog(),
-              );
-            },
+            onTap: () {},
             child: const Text(
               'Lupa kata sandi?',
               style: TextStyle(
@@ -482,7 +512,7 @@ class _AuthScreenState extends State<AuthScreen>
         onPressed: _isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1BAB8A),
-          disabledBackgroundColor: const Color(0xFF1BAB8A).withOpacity(0.55),
+          disabledBackgroundColor: const Color(0xFF1BAB8A).withValues(alpha: 0.55),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
