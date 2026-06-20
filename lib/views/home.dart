@@ -703,7 +703,7 @@ class _HomeContent extends StatelessWidget {
           stream: FirebaseFirestore.instance
               .collection('requests')
               .orderBy('createdAt', descending: true)
-              .limit(5)
+              .limit(20)
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -743,8 +743,9 @@ class _HomeContent extends StatelessWidget {
             final requests = snapshot.data!.docs
                 .map((doc) => RequestModel.fromMap(
                     doc.id, doc.data() as Map<String, dynamic>))
-                // Filter: sembunyikan request milik sendiri
-                .where((r) => !requestController.isCreator(r))
+                // Filter: sembunyikan request milik sendiri & yang sudah ada helper
+                .where((r) => !requestController.isCreator(r) && r.status == 'menunggu')
+                .take(5)
                 .toList();
 
             return Column(
