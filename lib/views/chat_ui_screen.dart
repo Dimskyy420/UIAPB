@@ -37,7 +37,6 @@ class _ChatUIScreenState extends State<ChatUIScreen> {
   @override
   void initState() {
     super.initState();
-    // Tandai sudah dibaca saat buka chat
     widget.ctrl.markAsRead(widget.roomId);
   }
 
