@@ -75,34 +75,21 @@ class ProfileController {
     }
   }
 
-  // ─── Upload foto profil ────────────────────────────────────────────────────
-  /// Upload [imageFile] ke Firebase Storage, lalu update photoUrl di Firestore
-  /// dan Firebase Auth. Kembalikan URL baru jika berhasil, null jika gagal.
-  Future<String?> uploadProfilePhoto(File imageFile) async {
-    if (uid.isEmpty) return null;
+  // ─── Update foto profil via URL ────────────────────────────────────────────
+  /// Update photoUrl di Firestore dan Firebase Auth menggunakan URL langsung.
+  /// Kembalikan true jika berhasil, false jika gagal.
+  Future<bool> updateProfilePhotoUrl(String newUrl) async {
+    if (uid.isEmpty) return false;
     try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profile_photos')
-          .child('$uid.jpg');
-
-      final uploadTask = ref.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-
       // Update Firestore
-      await _db.collection('users').doc(uid).update({'photoUrl': downloadUrl});
+      await _db.collection('users').doc(uid).update({'photoUrl': newUrl});
 
       // Update Firebase Auth profile
-      await _auth.currentUser?.updatePhotoURL(downloadUrl);
+      await _auth.currentUser?.updatePhotoURL(newUrl);
 
-      return downloadUrl;
+      return true;
     } catch (e) {
-      return null;
+      return false;
     }
   }
 

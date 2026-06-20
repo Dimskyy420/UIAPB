@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
 import '../controller/auth_controller.dart';
 import '../controller/profile_controller.dart';
 import '../models/home_model.dart';
@@ -144,104 +142,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Pilih & Upload Foto ────────────────────────────────────────────────────
 
-  Future<void> _pickAndUploadPhoto(ImageSource source) async {
-    Navigator.pop(context); // tutup bottom sheet
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      imageQuality: 75,
-      maxWidth: 800,
-    );
-    if (picked == null || !mounted) return;
+  // ── Update Foto via URL ────────────────────────────────────────────────────
 
-    setState(() => _isUploadingPhoto = true);
-    final newUrl =
-        await _profileController.uploadProfilePhoto(File(picked.path));
-    if (mounted) {
-      setState(() {
-        _isUploadingPhoto = false;
-        if (newUrl != null) _currentPhotoUrl = newUrl;
-      });
-      if (newUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal mengunggah foto. Coba lagi.'),
-            backgroundColor: Color(0xFFE74C3C),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Foto profil berhasil diperbarui! 🎉'),
-            backgroundColor: Color(0xFF1BAB8A),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showPhotoOptions() {
-    showModalBottomSheet(
+  void _showPhotoUrlDialog() {
+    final TextEditingController urlController = TextEditingController();
+    showDialog(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0E0E0),
-                  borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Ubah Foto Profil',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Masukkan URL/Link gambar untuk foto profilmu:',
+                style: TextStyle(fontSize: 13, color: Color(0xFF555555))),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlController,
+              decoration: InputDecoration(
+                hintText: 'https://contoh.com/foto.jpg',
+                hintStyle: const TextStyle(color: Color(0xFFBBBBBB)),
+                filled: true,
+                fillColor: const Color(0xFFF5F7FA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
                 ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'Ubah Foto Profil',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Pilih sumber foto',
-                style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PhotoSourceButton(
-                      icon: Icons.photo_library_rounded,
-                      color: const Color(0xFF7C4DFF),
-                      bg: const Color(0xFFF0EBFF),
-                      label: 'Galeri',
-                      onTap: () => _pickAndUploadPhoto(ImageSource.gallery),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _PhotoSourceButton(
-                      icon: Icons.camera_alt_rounded,
-                      color: const Color(0xFF1BAB8A),
-                      bg: const Color(0xFFE8F7F4),
-                      label: 'Kamera',
-                      onTap: () => _pickAndUploadPhoto(ImageSource.camera),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
+            ),
+          ],
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal',
+                style: TextStyle(color: Color(0xFF888888), fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newUrl = urlController.text.trim();
+              if (newUrl.isEmpty) return;
+              Navigator.pop(ctx);
+              
+              setState(() => _isUploadingPhoto = true);
+              final success = await _profileController.updateProfilePhotoUrl(newUrl);
+              
+              if (mounted) {
+                setState(() {
+                  _isUploadingPhoto = false;
+                  if (success) _currentPhotoUrl = newUrl;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? 'Foto profil berhasil diperbarui! 🎉' : 'Gagal mengubah foto. Coba lagi.'),
+                    backgroundColor: success ? const Color(0xFF1BAB8A) : const Color(0xFFE74C3C),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1BAB8A),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('Simpan',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
@@ -402,7 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           GestureDetector(
-            onTap: _isUploadingPhoto ? null : _showPhotoOptions,
+            onTap: _isUploadingPhoto ? null : _showPhotoUrlDialog,
             child: Stack(
               alignment: Alignment.bottomRight,
               children: [
