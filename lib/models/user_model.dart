@@ -4,6 +4,7 @@ class UserModel {
   final String email;
   final String university;
   final String photoUrl;
+  final bool emailVerified;
 
   UserModel({
     required this.uid,
@@ -11,6 +12,7 @@ class UserModel {
     required this.email,
     required this.university,
     this.photoUrl = '',
+    this.emailVerified = false,
   });
 
   // Dari Firestore
@@ -21,6 +23,7 @@ class UserModel {
       email: map['email'] ?? '',
       university: map['university'] ?? '',
       photoUrl: map['photoUrl'] ?? '',
+      emailVerified: map['emailVerified'] as bool? ?? false,
     );
   }
 
@@ -32,6 +35,7 @@ class UserModel {
       'email': email,
       'university': university,
       'photoUrl': photoUrl,
+      'emailVerified': emailVerified,
     };
   }
-}
+}
