@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
+import '../services/in_app_notification_service.dart';
 
 class BidController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -63,6 +64,15 @@ class BidController {
         'status': 'menunggu',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // ── Kirim notifikasi in-app ke pemilik request ──────────────────────
+      await InAppNotificationService.send(
+        toUid: request.userId,
+        title: '🙋 Ada Helper Baru!',
+        body: 'Seseorang mengajukan penawaran untuk tugasmu: "${request.title}"',
+        type: 'bid_received',
+        requestId: request.id,
+      );
 
       return null; // null = sukses
     } catch (e) {
@@ -128,13 +138,16 @@ class BidController {
       batch.update(bidRef, {'status': 'diterima'});
 
       // Update status request → 'berjalan'
-      final requestRef =
-          _firestore.collection('requests').doc(requestId);
+      final requestRef = _firestore.collection('requests').doc(requestId);
       batch.update(requestRef, {'status': 'berjalan'});
 
       await batch.commit();
 
-      // Tolak semua penawaran lain secara otomatis
+      // ── Ambil judul request ─────────────────────────────────────────────
+      final reqSnap = await requestRef.get();
+      final requestTitle = reqSnap.data()?['title'] as String? ?? 'tugasmu';
+
+      // ── Tolak semua penawaran LAIN secara otomatis + kirim notif ditolak ─
       final otherBids = await _firestore
           .collection('requests')
           .doc(requestId)
@@ -143,7 +156,35 @@ class BidController {
           .get();
 
       for (final doc in otherBids.docs) {
+        // Update status ke 'ditolak'
         await doc.reference.update({'status': 'ditolak'});
+
+        // Kirim notif ke setiap helper yang ditolak otomatis
+        final rejectedHelperUid = doc.data()['helperUid'] as String? ?? '';
+        if (rejectedHelperUid.isNotEmpty) {
+          await InAppNotificationService.send(
+            toUid: rejectedHelperUid,
+            title: '😔 Penawaran Tidak Dipilih',
+            body: 'Penawaranmu untuk tugas "$requestTitle" tidak dipilih kali ini. Jangan menyerah, coba tugas lainnya!',
+            type: 'bid_rejected',
+            requestId: requestId,
+          );
+        }
+      }
+
+      // ── Ambil helperUid dari bid yang DITERIMA ──────────────────────────
+      final bidSnap = await bidRef.get();
+      final acceptedHelperUid = bidSnap.data()?['helperUid'] as String? ?? '';
+
+      // ── Kirim notif ke helper yang DITERIMA ─────────────────────────────
+      if (acceptedHelperUid.isNotEmpty) {
+        await InAppNotificationService.send(
+          toUid: acceptedHelperUid,
+          title: '🎉 Penawaran Diterima!',
+          body: 'Selamat! Penawaranmu untuk tugas "$requestTitle" telah diterima. Silakan mulai kerjakan!',
+          type: 'bid_accepted',
+          requestId: requestId,
+        );
       }
 
       return null;
@@ -152,7 +193,7 @@ class BidController {
     }
   }
 
-  // ─── Tolak penawaran (hanya pembuat request yang bisa) ────────────────────
+  // ─── Tolak penawaran MANUAL satu per satu (oleh pemilik request) ────────
   Future<String?> tolakPenawaran({
     required String requestId,
     required String bidId,
@@ -160,12 +201,36 @@ class BidController {
     if (_userId.isEmpty) return 'Kamu harus login terlebih dahulu.';
 
     try {
-      await _firestore
+      // ── Ambil data bid sebelum diupdate (untuk tahu helperUid) ───────────
+      final bidRef = _firestore
           .collection('requests')
           .doc(requestId)
           .collection('penawaran')
-          .doc(bidId)
-          .update({'status': 'ditolak'});
+          .doc(bidId);
+
+      final bidSnap = await bidRef.get();
+      final rejectedHelperUid = bidSnap.data()?['helperUid'] as String? ?? '';
+
+      // ── Update status bid → 'ditolak' ────────────────────────────────────
+      await bidRef.update({'status': 'ditolak'});
+
+      // ── Ambil judul request ───────────────────────────────────────────────
+      final reqSnap = await _firestore
+          .collection('requests')
+          .doc(requestId)
+          .get();
+      final requestTitle = reqSnap.data()?['title'] as String? ?? 'sebuah tugas';
+
+      // ── Kirim notif ke helper yang ditolak ───────────────────────────────
+      if (rejectedHelperUid.isNotEmpty) {
+        await InAppNotificationService.send(
+          toUid: rejectedHelperUid,
+          title: '😔 Penawaran Tidak Dipilih',
+          body: 'Penawaranmu untuk tugas "$requestTitle" tidak dipilih kali ini. Jangan menyerah, coba tugas lainnya!',
+          type: 'bid_rejected',
+          requestId: requestId,
+        );
+      }
 
       return null;
     } catch (e) {

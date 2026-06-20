@@ -649,6 +649,20 @@ class _BidCard extends StatelessWidget {
 
   Widget _buildCard(BuildContext context, RequestModel? request,
       Color statusColor, String statusLabel) {
+    // Override status tampilan jika request sudah selesai / dibatalkan
+    final Color effectiveColor;
+    final String effectiveLabel;
+    if (request?.status == 'selesai') {
+      effectiveColor = const Color(0xFF2196F3);
+      effectiveLabel = 'Selesai ✓';
+    } else if (request?.status == 'dibatalkan') {
+      effectiveColor = const Color(0xFFEF5350);
+      effectiveLabel = 'Dibatalkan';
+    } else {
+      effectiveColor = statusColor;
+      effectiveLabel = statusLabel;
+    }
+
     final title = request?.title ?? 'Memuat...';
     final category = request?.category ?? '';
     final colorIndex =
@@ -709,8 +723,8 @@ class _BidCard extends StatelessWidget {
                                       color: Color(0xFF888888))),
                               const Spacer(),
                               _StatusBadge(
-                                  label: statusLabel,
-                                  color: statusColor),
+                                  label: effectiveLabel,
+                                  color: effectiveColor),
                             ],
                           ),
                           const SizedBox(height: 3),

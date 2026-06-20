@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/notification_service.dart';
+import '../services/emailjs_service.dart';
+import '../services/otp_service.dart';
 
 class AuthController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -13,10 +15,8 @@ class AuthController {
 
   User? get currentUser => _auth.currentUser;
 
-  // ─── Google Sign-In (selalu tampilkan account picker) ─────────────────────
   Future<String?> signInWithGoogle() async {
     try {
-      // Force account picker: sign out dulu agar picker selalu muncul
       await _googleSignIn.signOut();
 
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -35,7 +35,6 @@ class AuthController {
       final User? user = userCred.user;
       if (user == null) return 'Gagal mendapatkan data user';
 
-      // Simpan ke Firestore jika user baru
       final doc = await _db.collection('users').doc(user.uid).get();
       if (!doc.exists) {
         await _db.collection('users').doc(user.uid).set({
@@ -45,47 +44,66 @@ class AuthController {
           'photoUrl': user.photoURL ?? '',
           'university': '',
           'createdAt': FieldValue.serverTimestamp(),
+          'emailVerified': true,
         });
+      } else {
+        final data = doc.data();
+        if (data?['emailVerified'] == null) {
+          await _db.collection('users').doc(user.uid).update({
+            'emailVerified': true,
+          });
+        }
       }
 
-      return null; // null = sukses
+      return null;
     } catch (e) {
       return e.toString();
     }
   }
 
-  // ─── Login Email & Password ───────────────────────────────────────────────
-  Future<String?> signInWithEmail({
+  Future<Map<String, dynamic>> signInWithEmail({
     required String email,
     required String password,
   }) async {
     try {
-      await _auth.signInWithEmailAndPassword(
+      final userCred = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
-      return null;
+
+      final user = userCred.user;
+      if (user != null) {
+        final doc = await _db.collection('users').doc(user.uid).get();
+        final isVerified = doc.data()?['emailVerified'] as bool? ?? false;
+        if (!isVerified) {
+          await sendLoginOtp();
+        }
+        return {'error': null, 'needsOtp': !isVerified};
+      }
+
+      return {'error': null, 'needsOtp': false};
     } on FirebaseAuthException catch (e) {
+      String msg;
       switch (e.code) {
         case 'user-not-found':
-          return 'Email tidak ditemukan';
+          msg = 'Email tidak ditemukan';
         case 'wrong-password':
-          return 'Kata sandi salah';
+          msg = 'Kata sandi salah';
         case 'invalid-email':
-          return 'Format email tidak valid';
+          msg = 'Format email tidak valid';
         case 'user-disabled':
-          return 'Akun telah dinonaktifkan';
+          msg = 'Akun telah dinonaktifkan';
         case 'too-many-requests':
-          return 'Terlalu banyak percobaan. Coba lagi nanti';
+          msg = 'Terlalu banyak percobaan. Coba lagi nanti';
         default:
-          return e.message ?? 'Login gagal';
+          msg = e.message ?? 'Login gagal';
       }
+      return {'error': msg, 'needsOtp': false};
     } catch (e) {
-      return e.toString();
+      return {'error': e.toString(), 'needsOtp': false};
     }
   }
 
-  // ─── Register Email & Password ────────────────────────────────────────────
   Future<String?> registerWithEmail({
     required String name,
     required String university,
@@ -93,7 +111,6 @@ class AuthController {
     required String password,
     required String confirmPassword,
   }) async {
-    // Validasi lokal
     if (name.trim().isEmpty) return 'Nama tidak boleh kosong';
     if (university.trim().isEmpty) return 'Universitas tidak boleh kosong';
     if (email.trim().isEmpty) return 'Email tidak boleh kosong';
@@ -110,10 +127,8 @@ class AuthController {
       final User? user = userCred.user;
       if (user == null) return 'Gagal membuat akun';
 
-      // Update display name di Firebase Auth
       await user.updateDisplayName(name.trim());
 
-      // Simpan data ke Firestore
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'name': name.trim(),
@@ -121,9 +136,12 @@ class AuthController {
         'photoUrl': '',
         'university': university.trim(),
         'createdAt': FieldValue.serverTimestamp(),
+        'emailVerified': false,
       });
 
-      return null; // null = sukses
+      await _auth.signOut();
+
+      return null;
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'email-already-in-use':
@@ -140,13 +158,62 @@ class AuthController {
     }
   }
 
-  // ─── Logout ───────────────────────────────────────────────────────────────
+  Future<String?> sendLoginOtp() async {
+    final user = _auth.currentUser;
+    if (user == null) return 'User tidak ditemukan';
+    if (user.email == null) return 'Email tidak tersedia';
+
+    try {
+      final doc = await _db.collection('users').doc(user.uid).get();
+      final name = doc.data()?['name'] as String? ?? 'Pengguna';
+
+      final otp = await OtpService.generateAndSave(user.uid);
+
+      final sent = await EmailJsService.sendOtp(
+        toEmail: user.email!,
+        toName: name,
+        otpCode: otp,
+      );
+
+      if (!sent) return 'Gagal mengirim email. Periksa koneksi dan coba lagi.';
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<bool> isEmailOtpVerified() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      final doc = await _db.collection('users').doc(user.uid).get();
+      return doc.data()?['emailVerified'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> verifyLoginOtp(String inputOtp) async {
+    final user = _auth.currentUser;
+    if (user == null) return 'User tidak ditemukan';
+
+    try {
+      final error = await OtpService.verify(user.uid, inputOtp);
+      if (error == null) {
+        await _db.collection('users').doc(user.uid).set(
+          {'emailVerified': true},
+          SetOptions(merge: true),
+        );
+      }
+      return error;
+    } catch (e) {
+      return 'Gagal memperbarui data diverifikasi: $e';
+    }
+  }
+
   Future<void> logout() async {
-    // 1. Hapus FCM token agar notifikasi tidak dikirim ke device ini
     await NotificationService.clearFcmToken();
-    // 2. Sign out Google
     await _googleSignIn.signOut();
-    // 3. Sign out Firebase Auth
     await _auth.signOut();
   }
 }
