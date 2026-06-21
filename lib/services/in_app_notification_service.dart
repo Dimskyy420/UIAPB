@@ -35,7 +35,7 @@ class InAppNotificationService {
         .where('toUid', isEqualTo: uid)
         .where('isRead', isEqualTo: false)
         .orderBy('createdAt', descending: true)
-        .limit(1) // Ambil 1 notif terbaru saja untuk popup
+        .limit(1)
         .snapshots();
   }
 

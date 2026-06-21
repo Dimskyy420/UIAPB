@@ -15,20 +15,14 @@ class _EstimasiHargaScreenState extends State<EstimasiHargaScreen> {
   final RequestController _controller = RequestController();
   bool _isLoading = false;
   late int _budget;
-  late String _selectedMode;
-  late String _selectedDuration;
 
   @override
   void initState() {
     super.initState();
-    _selectedMode = widget.draft.mode;
-    _selectedDuration = widget.draft.duration;
     _budget = widget.draft.totalEstimasi;
   }
 
   RequestModel get _currentDraft => widget.draft.copyWith(
-        mode: _selectedMode,
-        duration: _selectedDuration,
         budget: _budget,
       );
 
@@ -74,13 +68,11 @@ class _EstimasiHargaScreenState extends State<EstimasiHargaScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildModeSelector(),
-                    const SizedBox(height: 16),
-                    _buildDurationChips(),
-                    const SizedBox(height: 20),
                     _buildEstimasiCard(draft),
                     const SizedBox(height: 16),
                     _buildRincianCard(draft),
+                    const SizedBox(height: 16),
+                    _buildCurrentPriceCard(draft),
                     const SizedBox(height: 16),
                     _buildBudgetSlider(draft),
                   ],
@@ -131,101 +123,149 @@ class _EstimasiHargaScreenState extends State<EstimasiHargaScreen> {
     );
   }
 
-  Widget _buildModeSelector() {
-    return Row(
-      children: ['Online', 'Tatap Muka'].map((mode) {
-        final isSelected = _selectedMode == mode;
-        final sub = mode == 'Online' ? 'Tanpa extra fee' : 'Ada extra fee';
-        final icon = mode == 'Online'
-            ? Icons.wifi_outlined
-            : Icons.location_on_outlined;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() {
-              _selectedMode = mode;
-              _budget = _currentDraft.totalEstimasi;
-            }),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              margin: EdgeInsets.only(right: mode == 'Online' ? 8 : 0),
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFF0FBF7) : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF1BAB8A)
-                      : const Color(0xFFE0E0E0),
-                  width: isSelected ? 1.5 : 0.8,
+
+  // ─── Kalkulasi dinamis dari nilai slider ──────────────────────────────────
+  int get _currentPlatformFee => (_budget * 0.10).round();
+  int get _currentExtraFee => widget.draft.mode == 'Tatap Muka' ? 3000 : 0;
+  int get _currentTotal => _budget + _currentPlatformFee + _currentExtraFee;
+
+  Widget _buildCurrentPriceCard(RequestModel draft) {
+    final diff = _currentTotal - draft.totalEstimasi;
+    final isAbove = diff > 0;
+    final isEqual = diff == 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Harga Saat Ini',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A)),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isEqual
+                      ? const Color(0xFFE8F6F2)
+                      : isAbove
+                          ? const Color(0xFFFFF3E0)
+                          : const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isEqual
+                      ? 'Sesuai estimasi'
+                      : isAbove
+                          ? '+${_controller.formatRupiah(diff)} dari estimasi'
+                          : '${_controller.formatRupiah(diff)} dari estimasi',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isEqual
+                        ? const Color(0xFF0F6E56)
+                        : isAbove
+                            ? const Color(0xFFE65100)
+                            : const Color(0xFFC62828),
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(icon,
-                      size: 16,
-                      color: isSelected
-                          ? const Color(0xFF1BAB8A)
-                          : const Color(0xFF888888)),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(mode,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? const Color(0xFF1BAB8A)
-                                  : const Color(0xFF333333))),
-                      Text(sub,
-                          style: const TextStyle(
-                              fontSize: 10, color: Color(0xFF888888))),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
-        );
-      }).toList(),
+          const SizedBox(height: 12),
+          _currentPriceRow(
+            'Budget Dasar',
+            'Nilai yang kamu set',
+            _controller.formatRupiah(_budget),
+            null,
+          ),
+          const Divider(height: 16, color: Color(0xFFF0F0F0)),
+          _currentPriceRow(
+            'Platform Fee',
+            '10% dari budget',
+            _controller.formatRupiah(_currentPlatformFee),
+            null,
+          ),
+          const Divider(height: 16, color: Color(0xFFF0F0F0)),
+          _currentPriceRow(
+            'Extra Fee',
+            'Tatap muka – biaya operasional',
+            _controller.formatRupiah(_currentExtraFee),
+            draft.mode == 'Online' ? 'Offline' : null,
+          ),
+          const Divider(height: 16, color: Color(0xFFF0F0F0)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total Bayar',
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700)),
+              Text(
+                _controller.formatRupiah(_currentTotal),
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1BAB8A)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildDurationChips() {
-    final durations = ['< 1 jam', '1-2 jam', '2-4 jam', '1 hari', '2-3 hari'];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: durations.map((d) {
-        final isSelected = _selectedDuration == d;
-        return GestureDetector(
-          onTap: () => setState(() {
-            _selectedDuration = d;
-            _budget = _currentDraft.totalEstimasi;
-          }),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF1BAB8A) : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF1BAB8A)
-                    : const Color(0xFFE0E0E0),
-                width: 0.8,
-              ),
+  Widget _currentPriceRow(
+      String title, String sub, String amount, String? badge) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF333333))),
+                if (badge != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F2F5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(badge,
+                        style: const TextStyle(
+                            fontSize: 9, color: Color(0xFF888888))),
+                  ),
+                ],
+              ],
             ),
-            child: Text(d,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isSelected
-                        ? Colors.white
-                        : const Color(0xFF555555))),
-          ),
-        );
-      }).toList(),
+            Text(sub,
+                style: const TextStyle(
+                    fontSize: 11, color: Color(0xFF888888))),
+          ],
+        ),
+        Text(amount,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF333333))),
+      ],
     );
   }
 
@@ -363,6 +403,13 @@ class _EstimasiHargaScreenState extends State<EstimasiHargaScreen> {
   }
 
   Widget _buildBudgetSlider(RequestModel draft) {
+    // Slider max harus selalu >= totalEstimasi agar tidak crash
+    final double sliderMax = (draft.totalEstimasi > 100000
+            ? ((draft.totalEstimasi / 10000).ceil() * 10000).toDouble()
+            : 100000.0);
+    // Clamp budget agar tidak melebihi max slider
+    final double safeValue = _budget.toDouble().clamp(5000.0, sliderMax);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -395,22 +442,26 @@ class _EstimasiHargaScreenState extends State<EstimasiHargaScreen> {
             ),
           ),
           Slider(
-            value: _budget.toDouble(),
+            value: safeValue,
             min: 5000,
-            max: 100000,
+            max: sliderMax,
             activeColor: const Color(0xFF1BAB8A),
             inactiveColor: const Color(0xFFE0E0E0),
             onChanged: (val) => setState(() => _budget = val.round()),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('Rp 5k',
+            children: [
+              const Text('Rp 5k',
                   style:
                       TextStyle(fontSize: 11, color: Color(0xFF888888))),
-              Text('Rp 100k',
-                  style:
-                      TextStyle(fontSize: 11, color: Color(0xFF888888))),
+              Text(
+                sliderMax >= 1000000
+                    ? 'Rp ${(sliderMax / 1000000).toStringAsFixed(1)}jt'
+                    : 'Rp ${(sliderMax / 1000).round()}k',
+                style:
+                    const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+              ),
             ],
           ),
           if (_budget >= draft.totalEstimasi) ...[

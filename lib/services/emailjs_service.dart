@@ -2,15 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class EmailJsService {
-  // ─── Ganti dengan credentials EmailJS kamu ────────────────────────────────
-  // Daftar di https://www.emailjs.com → Dashboard → Email Services & Templates
+  
   static const String _serviceId = 'service_vkc1bbn';
   static const String _templateId = 'template_92gva3k';
   static const String _publicKey = 'AhYxPnOBn2PQftj_8';
-  // ───────────────────────────────────────────────────────────────────────────
-
-  /// Kirim email OTP ke user.
-  /// Return true jika berhasil, false jika gagal.
+ 
   static Future<bool> sendOtp({
     required String toEmail,
     required String toName,

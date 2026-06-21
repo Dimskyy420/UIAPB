@@ -198,8 +198,10 @@ class _SearchAvailableTasksScreenState
         final allRequests = docs
             .map((doc) =>
                 RequestModel.fromMap(doc.id, doc.data() as Map<String, dynamic>))
-            // ✅ Filter: sembunyikan request milik sendiri
-            .where((r) => !_requestController.isCreator(r))
+            // ✅ Filter: sembunyikan request milik sendiri & yang sudah diambil
+            .where((r) =>
+                !_requestController.isCreator(r) &&
+                (r.status == 'menunggu' || r.status == 'segera'))
             .toList();
         final filtered = _filter(allRequests);
 

@@ -345,14 +345,30 @@ class _AuthScreenState extends State<AuthScreen>
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(9),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    // Outer soft shadow
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      offset: const Offset(0, 6),
+                      blurRadius: 12,
+                    ),
+                    // Inner sharp shadow to give depth
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      offset: const Offset(0, 2),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
-                child: Center(
-                  child: Text('🤝', style: TextStyle(fontSize: sw * 0.045)),
+                padding: const EdgeInsets.all(6),
+                child: Image.asset(
+                  'assets/images/tasuru_logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(width: 9),
