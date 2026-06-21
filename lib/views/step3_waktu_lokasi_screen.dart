@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/request_model.dart';
+import '../../models/picked_location.dart';
 import '../../controller/request_controller.dart';
+import '../widgets/location_summary_card.dart';
 import 'estimasi_harga_screen.dart';
 
 class Step3WaktuLokasiScreen extends StatefulWidget {
@@ -14,8 +16,9 @@ class Step3WaktuLokasiScreen extends StatefulWidget {
 
 class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
   final RequestController _controller = RequestController();
-  final _locationCtrl = TextEditingController(
-      text: 'Perpustakaan Pusat Telkom University');
+
+  // Lokasi pertemuan hasil pemilih peta (null sampai user memilih).
+  PickedLocation? _picked;
 
   String _selectedMode = 'Tatap Muka';
   late String _selectedDate;
@@ -34,14 +37,8 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
     _selectedDateLabel = _dates[0]['sub']!;
   }
 
-  @override
-  void dispose() {
-    _locationCtrl.dispose();
-    super.dispose();
-  }
-
   bool get _isValid =>
-      (_selectedMode == 'Online' || _locationCtrl.text.trim().isNotEmpty) &&
+      (_selectedMode == 'Online' || _picked != null) &&
       _selectedDate.isNotEmpty &&
       _selectedTime.isNotEmpty;
 
@@ -80,7 +77,10 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
                       const SizedBox(height: 16),
                       _buildLabel('Lokasi Pertemuan'),
                       const SizedBox(height: 8),
-                      _buildLocationField(),
+                      LocationSummaryCard(
+                        value: _picked,
+                        onPicked: (p) => setState(() => _picked = p),
+                      ),
                       const SizedBox(height: 6),
                       const Text(
                         'Lokasi bisa dinegosiasi dengan helper via chat setelah penawaran diterima.',
@@ -238,37 +238,6 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
     );
   }
 
-  Widget _buildLocationField() {
-    return TextFormField(
-      controller: _locationCtrl,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
-      decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.location_on_outlined,
-            color: Color(0xFFAAAAAA), size: 20),
-        hintText: 'Masukkan lokasi pertemuan',
-        hintStyle:
-            const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE5E5E5), width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFF1BAB8A), width: 1.5),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDateSelector() {
     return Row(
       children: _dates.map((d) {
@@ -392,7 +361,7 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
           if (_selectedMode == 'Tatap Muka') ...[
             const SizedBox(height: 4),
             _summaryRow(Icons.location_on_outlined,
-                _locationCtrl.text.trim()),
+                _picked?.address ?? 'Belum dipilih'),
           ],
         ],
       ),
@@ -442,8 +411,14 @@ class _Step3WaktuLokasiScreenState extends State<Step3WaktuLokasiScreen> {
                         final updated = widget.draft.copyWith(
                           mode: _selectedMode,
                           location: _selectedMode == 'Tatap Muka'
-                              ? _locationCtrl.text.trim()
+                              ? (_picked?.address ?? '')
                               : 'Online',
+                          lokasiLat: _selectedMode == 'Tatap Muka'
+                              ? _picked?.point.latitude
+                              : null,
+                          lokasiLng: _selectedMode == 'Tatap Muka'
+                              ? _picked?.point.longitude
+                              : null,
                           date: _selectedDate,
                           time: _selectedTime,
                         );

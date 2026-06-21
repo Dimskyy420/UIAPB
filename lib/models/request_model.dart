@@ -9,6 +9,11 @@ class RequestModel {
   final String duration;
   final String mode;
   final String location;
+  // Koordinat pin lokasi pertemuan (mode Tatap Muka). Disimpan sebagai dua
+  // field double datar — bukan GeoPoint — agar konsisten dengan field model
+  // lain. `location` di atas hanyalah alamat tampilan hasil reverse-geocode.
+  final double? lokasiLat;
+  final double? lokasiLng;
   final String date;
   final String time;
   final int budget;
@@ -24,6 +29,8 @@ class RequestModel {
     required this.duration,
     required this.mode,
     required this.location,
+    this.lokasiLat,
+    this.lokasiLng,
     required this.date,
     required this.time,
     required this.budget,
@@ -40,6 +47,8 @@ class RequestModel {
       'duration': duration,
       'mode': mode,
       'location': location,
+      'lokasiLat': lokasiLat,
+      'lokasiLng': lokasiLng,
       'date': date,
       'time': time,
       'budget': budget,
@@ -58,6 +67,8 @@ class RequestModel {
       duration: map['duration'] ?? '',
       mode: map['mode'] ?? 'Tatap Muka',
       location: map['location'] ?? '',
+      lokasiLat: (map['lokasiLat'] as num?)?.toDouble(),
+      lokasiLng: (map['lokasiLng'] as num?)?.toDouble(),
       date: map['date'] ?? '',
       time: map['time'] ?? '',
       budget: map['budget'] ?? 0,
@@ -96,6 +107,8 @@ class RequestModel {
     String? duration,
     String? mode,
     String? location,
+    double? lokasiLat,
+    double? lokasiLng,
     String? date,
     String? time,
     int? budget,
@@ -110,6 +123,8 @@ class RequestModel {
       duration: duration ?? this.duration,
       mode: mode ?? this.mode,
       location: location ?? this.location,
+      lokasiLat: lokasiLat ?? this.lokasiLat,
+      lokasiLng: lokasiLng ?? this.lokasiLng,
       date: date ?? this.date,
       time: time ?? this.time,
       budget: budget ?? this.budget,
