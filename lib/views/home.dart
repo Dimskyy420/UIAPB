@@ -919,10 +919,17 @@ class _HomeTaskSheet extends StatefulWidget {
 class _HomeTaskSheetState extends State<_HomeTaskSheet> {
   final BidController _bidController = BidController();
   final RequestController _reqController = RequestController();
+  final TextEditingController _pesanCtrl = TextEditingController();
   bool _isLoading = false;
   bool _alreadyBid = false;
   bool _checkingBid = true;
   bool _isOwner = false;
+
+  @override
+  void dispose() {
+    _pesanCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -949,7 +956,9 @@ class _HomeTaskSheetState extends State<_HomeTaskSheet> {
     setState(() => _isLoading = true);
     final error = await _bidController.ajukanPenawaran(
       request: widget.request,
-      pesan: 'Saya siap membantu!',
+      pesan: _pesanCtrl.text.trim().isEmpty
+          ? 'Saya siap membantu!'
+          : _pesanCtrl.text.trim(),
     );
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -1076,6 +1085,52 @@ class _HomeTaskSheetState extends State<_HomeTaskSheet> {
                       ),
                     ),
                     const SizedBox(height: 24),
+
+                    // ── Input pesan ──────────────────────────────────────────
+                    if (!_isOwner && !_alreadyBid && !_checkingBid) ...[
+                      const Text(
+                        'Pesan untuk peminta',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF555555),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _pesanCtrl,
+                        maxLines: 3,
+                        maxLength: 200,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Saya siap membantu!',
+                          hintStyle: const TextStyle(
+                              color: Color(0xFFBBBBBB), fontSize: 13),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.all(14),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE5E5E5)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE5E5E5)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF1BAB8A), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ] else
+                      const SizedBox(height: 24),
+
+                    // ── Tombol Ajukan ───────────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       height: 52,

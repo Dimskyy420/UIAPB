@@ -68,6 +68,35 @@ class ReviewController {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // ── Ambil hargaTawar dari bid helper yang diterima ─────────────────
+      int earned = 0;
+      try {
+        final bidSnap = await _db
+            .collection('requests')
+            .doc(requestId)
+            .collection('penawaran')
+            .where('helperUid', isEqualTo: toUid)
+            .where('status', isEqualTo: 'diterima')
+            .limit(1)
+            .get();
+        if (bidSnap.docs.isNotEmpty) {
+          earned =
+              (bidSnap.docs.first.data()['hargaTawar'] as num?)?.toInt() ?? 0;
+        }
+      } catch (_) {}
+
+      // ── Update statistik di dokumen user helper ────────────────────────
+      final Map<String, dynamic> statsUpdate = {
+        'totalTaskSelesai': FieldValue.increment(1),
+      };
+      if (earned > 0) {
+        statsUpdate['totalEarned'] = FieldValue.increment(earned);
+      }
+      await _db
+          .collection('users')
+          .doc(toUid)
+          .set(statsUpdate, SetOptions(merge: true));
+
       return null; // null = sukses
     } catch (e) {
       return 'Gagal mengirim ulasan: ${e.toString()}';

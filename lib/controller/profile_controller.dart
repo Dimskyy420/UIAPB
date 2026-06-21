@@ -27,7 +27,6 @@ class ProfileController {
     return _db
         .collection('reviews')
         .where('toUid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .limit(10)
         .snapshots();
   }
@@ -91,6 +90,53 @@ class ProfileController {
     } catch (e) {
       return false;
     }
+  }
+
+  // ─── Public: rata-rata rating helper lain ──────────────────────────────────
+  Future<double> getPublicAverageRating(String helperUid) async {
+    if (helperUid.isEmpty) return 0.0;
+    try {
+      final snap = await _db
+          .collection('reviews')
+          .where('toUid', isEqualTo: helperUid)
+          .get();
+      if (snap.docs.isEmpty) return 0.0;
+      final total = snap.docs.fold<double>(
+          0, (sum, doc) => sum + (doc['rating'] as num).toDouble());
+      return total / snap.docs.length;
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  // ─── Public: stream data profil user lain ──────────────────────────────────
+  Stream<Map<String, dynamic>> streamPublicUser(String helperUid) {
+    if (helperUid.isEmpty) return Stream.value({});
+    return _db.collection('users').doc(helperUid).snapshots().map((doc) {
+      return doc.data() ?? {};
+    });
+  }
+
+  // ─── Public: stream statistik user lain ────────────────────────────────────
+  Stream<Map<String, dynamic>> streamPublicStats(String helperUid) {
+    if (helperUid.isEmpty) return Stream.value({});
+    return _db.collection('users').doc(helperUid).snapshots().map((doc) {
+      final data = doc.data() ?? {};
+      return {
+        'totalTaskSelesai': data['totalTaskSelesai'] ?? 0,
+        'totalEarned': data['totalEarned'] ?? 0,
+      };
+    });
+  }
+
+  // ─── Public: stream ulasan yang diterima user lain ─────────────────────────
+  Stream<QuerySnapshot> streamPublicReviews(String helperUid) {
+    if (helperUid.isEmpty) return const Stream.empty();
+    return _db
+        .collection('reviews')
+        .where('toUid', isEqualTo: helperUid)
+        .limit(10)
+        .snapshots();
   }
 
   // ─── Format rupiah ─────────────────────────────────────────────────────────

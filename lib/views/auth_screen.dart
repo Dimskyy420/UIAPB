@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../controller/auth_controller.dart';
 import 'home.dart';
 import 'otp_screen.dart';
@@ -174,6 +175,118 @@ class _AuthScreenState extends State<AuthScreen>
   void _goHome() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const HomePage()),
+    );
+  }
+
+  // ─── Lupa Kata Sandi ──────────────────────────────────────────────────────
+  void _showForgotPasswordSheet() {
+    final emailCtrl = TextEditingController(text: _loginEmailCtrl.text.trim());
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          left: 24,
+          right: 24,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Lupa Kata Sandi?',
+              style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A)),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Masukkan email yang terdaftar untuk menerima link reset kata sandi.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888), height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: 'Email kampus',
+                hintStyle: const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
+                prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFFBBBBBB), size: 18),
+                filled: true,
+                fillColor: const Color(0xFFF5F7FA),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final email = emailCtrl.text.trim();
+                  if (email.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Email tidak boleh kosong'), backgroundColor: Color(0xFFE74C3C)),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  try {
+                    await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Link reset kata sandi dikirim ke $email ✉️'),
+                          backgroundColor: const Color(0xFF1BAB8A),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Gagal mengirim email reset'),
+                          backgroundColor: Color(0xFFE74C3C),
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1BAB8A),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Kirim Link Reset', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
     );
   }
 
@@ -365,7 +478,7 @@ class _AuthScreenState extends State<AuthScreen>
         Align(
           alignment: Alignment.centerRight,
           child: GestureDetector(
-            onTap: () {},
+            onTap: _showForgotPasswordSheet,
             child: const Text(
               'Lupa kata sandi?',
               style: TextStyle(

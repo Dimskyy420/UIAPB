@@ -483,10 +483,17 @@ class _TaskDetailSheet extends StatefulWidget {
 class _TaskDetailSheetState extends State<_TaskDetailSheet> {
   // ✅ Gunakan BidController, bukan RequestController
   final BidController _bidController = BidController();
+  final TextEditingController _pesanCtrl = TextEditingController();
 
   bool _isLoading = false;
   bool _alreadyBid = false;   // ✅ State cek duplikat
   bool _checkingBid = true;   // ✅ State loading saat cek awal
+
+  @override
+  void dispose() {
+    _pesanCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -515,7 +522,9 @@ class _TaskDetailSheetState extends State<_TaskDetailSheet> {
 
     final error = await _bidController.ajukanPenawaran(
       request: widget.request,
-      pesan: 'Saya siap membantu!',
+      pesan: _pesanCtrl.text.trim().isEmpty
+          ? 'Saya siap membantu!'
+          : _pesanCtrl.text.trim(),
     );
 
     if (!mounted) return;
@@ -623,6 +632,50 @@ class _TaskDetailSheetState extends State<_TaskDetailSheet> {
                           Icons.calculate_outlined),
                     ]),
                     const SizedBox(height: 24),
+
+                    // ── Input pesan ──────────────────────────────────────────
+                    if (!_alreadyBid && !_checkingBid) ...[
+                      const Text(
+                        'Pesan untuk peminta',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF555555),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _pesanCtrl,
+                        maxLines: 3,
+                        maxLength: 200,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Saya siap membantu!',
+                          hintStyle: const TextStyle(
+                              color: Color(0xFFBBBBBB), fontSize: 13),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.all(14),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE5E5E5)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Color(0xFFE5E5E5)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF1BAB8A), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ] else
+                      const SizedBox(height: 24),
 
                     // ✅ Tombol dengan 3 state: loading cek, sudah bid, belum bid
                     SizedBox(

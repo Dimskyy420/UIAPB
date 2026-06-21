@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../controller/auth_controller.dart';
 import '../controller/profile_controller.dart';
 import '../models/home_model.dart';
 import 'auth_screen.dart';
 import 'notification_screen.dart';
+import 'privacy_security_screen.dart';
+import 'help_support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final HomeModel? user;
@@ -143,6 +146,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Pilih & Upload Foto ────────────────────────────────────────────────────
 
+  void _goPrivasi() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PrivacySecurityScreen()),
+    );
+  }
+
+  void _goBantuan() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+    );
+  }
+
+
   // ── Update Foto via URL ────────────────────────────────────────────────────
 
   void _showPhotoUrlDialog() {
@@ -247,21 +265,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Compensate the upward shift
             const SizedBox(height: 0),
 
-            // ── Info Akun ───────────────────────────────────────────────────
-            _buildSectionLabel('Informasi Akun'),
+            // ── Ulasan diterima ──────────────────────────────────────────────────
+            _buildSectionLabel('Ulasan diterima'),
+            _buildReviewsSection(),
+            const SizedBox(height: 8),
+
+            // ── Informasi akun ───────────────────────────────────────────────────
+            _buildSectionLabel('Informasi akun'),
             _buildSection(
               children: [
                 _buildInfoTile(
                     icon: Icons.person_rounded,
-                    iconColor: const Color(0xFF7C4DFF),
-                    iconBg: const Color(0xFFF0EBFF),
+                    iconColor: const Color(0xFF1BAB8A),
+                    iconBg: const Color(0xFFE8F7F4),
                     label: 'Nama',
                     value: name),
                 _divider(),
                 _buildInfoTile(
                     icon: Icons.mail_rounded,
-                    iconColor: const Color(0xFF2196F3),
-                    iconBg: const Color(0xFFE8F4FD),
+                    iconColor: const Color(0xFF1BAB8A),
+                    iconBg: const Color(0xFFE8F7F4),
                     label: 'Email',
                     value: email),
                 if (_university.isNotEmpty) ...[
@@ -283,8 +306,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 _buildMenuTile(
                     icon: Icons.notifications_rounded,
-                    iconColor: const Color(0xFFFF9800),
-                    iconBg: const Color(0xFFFFF3E0),
+                    iconColor: const Color(0xFF1BAB8A),
+                    iconBg: const Color(0xFFE8F7F4),
                     label: 'Notifikasi',
                     subtitle: 'Atur preferensi notifikasi',
                     onTap: () {
@@ -296,11 +319,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _divider(),
                 _buildMenuTile(
                     icon: Icons.lock_rounded,
-                    iconColor: const Color(0xFFEF5350),
-                    iconBg: const Color(0xFFFFF0F0),
+                    iconColor: const Color(0xFF1BAB8A),
+                    iconBg: const Color(0xFFE8F7F4),
                     label: 'Privasi & Keamanan',
                     subtitle: 'Kelola keamanan akunmu',
-                    onTap: () {}),
+                    onTap: _goPrivasi),
                 _divider(),
                 _buildMenuTile(
                     icon: Icons.help_rounded,
@@ -308,14 +331,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     iconBg: const Color(0xFFE8F7F4),
                     label: 'Bantuan & Dukungan',
                     subtitle: 'FAQ dan hubungi kami',
-                    onTap: () {}),
+                    onTap: _goBantuan),
               ],
             ),
-            const SizedBox(height: 8),
-
-            // ── Ulasan ──────────────────────────────────────────────────────
-            _buildSectionLabel('Ulasan Diterima'),
-            _buildReviewsSection(),
             const SizedBox(height: 20),
 
             // ── Tombol Logout ────────────────────────────────────────────────
@@ -583,12 +601,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           }
 
-          final docs = snap.data!.docs;
+          final docs = snap.data!.docs.toList()
+            ..sort((a, b) {
+              final tA = ((a.data() as Map<String, dynamic>)['createdAt']
+                      as Timestamp?)
+                  ?.toDate() ??
+                  DateTime(2000);
+              final tB = ((b.data() as Map<String, dynamic>)['createdAt']
+                      as Timestamp?)
+                  ?.toDate() ??
+                  DateTime(2000);
+              return tB.compareTo(tA);
+            });
+
           return Column(
             children: docs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
               final rating = (data['rating'] as num).toDouble();
               final comment = data['comment'] as String? ?? '';
+              final reviewerName =
+                  data['reviewerName'] as String? ?? 'Pengguna';
+              String timeStr = '';
+              try {
+                final dt =
+                    (data['createdAt'] as Timestamp?)?.toDate();
+                if (dt != null) {
+                  final diff = DateTime.now().difference(dt);
+                  if (diff.inDays > 0) {
+                    timeStr = '${diff.inDays} hari lalu';
+                  } else if (diff.inHours > 0) {
+                    timeStr = '${diff.inHours} jam lalu';
+                  } else {
+                    timeStr = 'Baru saja';
+                  }
+                }
+              } catch (_) {}
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -600,6 +647,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Reviewer name + timestamp
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 13,
+                          backgroundColor: const Color(0xFFE8F7F4),
+                          child: Text(
+                            reviewerName.isNotEmpty
+                                ? reviewerName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1BAB8A)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            reviewerName,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF333333)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (timeStr.isNotEmpty)
+                          Text(timeStr,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFFAAAAAA))),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Bintang rating
                     Row(
                       children: [
                         Row(
@@ -610,23 +692,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ? Icons.star_rounded
                                   : Icons.star_outline_rounded,
                               color: const Color(0xFFFFA726),
-                              size: 18,
+                              size: 16,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFF8E1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             rating.toStringAsFixed(1),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700,
-                                fontSize: 12,
+                                fontSize: 11,
                                 color: Color(0xFFFFA726)),
                           ),
                         ),
@@ -657,14 +739,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSectionLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Text(
-        label.toUpperCase(),
+        label,
         style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFFAAAAAA),
-          letterSpacing: 1.2,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF888888),
         ),
       ),
     );
@@ -830,6 +911,80 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
+
+// ── FAQ Item Widget ─────────────────────────────────────────────────────
+
+class _FaqItem extends StatefulWidget {
+  final String question;
+  final String answer;
+  const _FaqItem({required this.question, required this.answer});
+
+  @override
+  State<_FaqItem> createState() => _FaqItemState();
+}
+
+class _FaqItemState extends State<_FaqItem> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF0F0F0)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.question,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A)),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF1BAB8A),
+                    size: 20,
+                  ),
+                ],
+              ),
+              if (_expanded) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                const SizedBox(height: 10),
+                Text(
+                  widget.answer,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF555555),
+                      height: 1.5),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 
 // ── Photo Source Button Widget ────────────────────────────────────────────────
 

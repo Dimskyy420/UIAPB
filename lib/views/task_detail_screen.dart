@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
 import '../controller/chat_controller.dart';
 import '../widgets/profile_avatar.dart';
+import '../widgets/rating_dialog.dart';
 import 'chat_ui_screen.dart';
+import 'helper_profile_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final RequestModel request;
@@ -413,7 +416,16 @@ class _BidCard extends StatelessWidget {
                 final helperName = helperData?['name'] ??
                     helperData?['displayName'] ??
                     'Helper';
-                return Row(
+                return InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          HelperProfileScreen(helperUid: bid.helperUid),
+                    ),
+                  ),
+                  child: Row(
                   children: [
                     FirestoreProfileAvatar(
                       uid: bid.helperUid,
@@ -425,14 +437,21 @@ class _BidCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            helperName.toString(),
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF222222)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Text(
+                                helperName.toString(),
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF222222)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.open_in_new_rounded,
+                                  size: 11, color: Color(0xFFBBBBBB)),
+                            ],
                           ),
                           const SizedBox(height: 1),
                           Text(
@@ -442,6 +461,7 @@ class _BidCard extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF1BAB8A)),
                           ),
+                          _HelperRatingBadge(helperUid: bid.helperUid),
                           if (bid.createdAt != null)
                             Text(
                               controller.timeAgo(bid.createdAt!),
@@ -456,6 +476,7 @@ class _BidCard extends StatelessWidget {
                         bgColor: statusColor.withOpacity(0.12),
                         textColor: statusColor),
                   ],
+                ),
                 );
               },
             ),
@@ -539,7 +560,10 @@ class _BidCard extends StatelessWidget {
 
               // Tombol Selesai atau label sudah selesai
               if (requestStatus != 'selesai')
-                _SelesaiButton(requestId: requestId)
+                _SelesaiButton(
+                  requestId: requestId,
+                  helperUid: bid.helperUid,
+                )
               else
                 Container(
                   width: double.infinity,
@@ -604,12 +628,58 @@ class _BidCard extends StatelessWidget {
   }
 }
 
+// ─── Rating badge helper di bid card ─────────────────────────────────────────
+
+class _HelperRatingBadge extends StatelessWidget {
+  final String helperUid;
+  const _HelperRatingBadge({required this.helperUid});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('reviews')
+          .where('toUid', isEqualTo: helperUid)
+          .get(),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.docs.isEmpty) {
+          return const Text(
+            'Belum ada ulasan',
+            style: TextStyle(fontSize: 11, color: Color(0xFF999999)),
+          );
+        }
+        final docs = snap.data!.docs;
+        final avg = docs
+                .map((d) =>
+                    (d.data() as Map<String, dynamic>)['rating'] as int? ?? 0)
+                .reduce((a, b) => a + b) /
+            docs.length;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFA726)),
+            const SizedBox(width: 2),
+            Text(
+              '${avg.toStringAsFixed(1)} (${docs.length} ulasan)',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 // ─── Tombol Selesai ───────────────────────────────────────────────────────────
 
 class _SelesaiButton extends StatefulWidget {
   final String requestId;
+  final String helperUid;
 
-  const _SelesaiButton({required this.requestId});
+  const _SelesaiButton({
+    required this.requestId,
+    required this.helperUid,
+  });
 
   @override
   State<_SelesaiButton> createState() => _SelesaiButtonState();
@@ -673,6 +743,34 @@ class _SelesaiButtonState extends State<_SelesaiButton> {
               borderRadius: BorderRadius.circular(10)),
         ),
       );
+
+      // ── Tampilkan dialog review helper ──────────────────────────────────────
+      String helperName = 'Helper';
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.helperUid)
+            .get();
+        final data = doc.data();
+        helperName =
+            data?['name'] ?? data?['displayName'] ?? 'Helper';
+      } catch (_) {}
+
+      if (!mounted) return;
+
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final reviewerName =
+          currentUser?.displayName ?? currentUser?.email ?? 'Pengguna';
+
+      await showRatingDialog(
+        context: context,
+        toUid: widget.helperUid,
+        requestId: widget.requestId,
+        toName: helperName,
+        reviewerName: reviewerName,
+      );
+
+      if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
