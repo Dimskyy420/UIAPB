@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../models/chat_model.dart';
+import '../controller/chat_controller.dart';
+import 'chat_ui_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -122,22 +125,80 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       ? timeago.format(createdAt.toDate()) 
                       : '';
 
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: isRead ? Colors.white : const Color(0xFFF0FAF8),
-                        borderRadius: BorderRadius.circular(16),
-                        border: isRead
-                            ? Border.all(color: const Color(0xFFEEEEEE))
-                            : Border.all(color: const Color(0xFF1BAB8A).withOpacity(0.3)),
-                        boxShadow: [
-                          if (!isRead)
-                            BoxShadow(
-                              color: const Color(0xFF1BAB8A).withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            )
-                        ],
-                      ),
+                    return InkWell(
+                      onTap: () async {
+                        // Tandai sudah dibaca
+                        if (!isRead) {
+                          FirebaseFirestore.instance.collection('notifications').doc(docs[index].id).update({'isRead': true});
+                        }
+                        
+                        if (data['type'] == 'chat' && data['roomId'] != null) {
+                          final roomId = data['roomId'];
+                          final roomDoc = await FirebaseFirestore.instance.collection('chatRooms').doc(roomId).get();
+                          if (!roomDoc.exists) return;
+                          
+                          final roomData = roomDoc.data()!;
+                          final room = ChatRoomModel.fromMap(roomDoc.id, roomData);
+                          
+                          final ctrl = ChatController();
+                          final otherUid = ctrl.getOtherUid(room);
+                          final isRequester = ctrl.currentUid == room.requesterId;
+                          
+                          final otherUserDoc = await FirebaseFirestore.instance.collection('users').doc(otherUid).get();
+                          final otherUserData = otherUserDoc.data() as Map<String, dynamic>?;
+                          final name = otherUserData?['name'] ?? otherUserData?['displayName'] ?? otherUserData?['firstName'] ?? '';
+                          final photoUrl = otherUserData?['photoUrl'] as String?;
+                          
+                          String getInitials(String n, String u) {
+                            if (n.trim().isNotEmpty) {
+                              final parts = n.trim().split(' ');
+                              if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+                              return n.trim().substring(0, n.trim().length.clamp(1, 2)).toUpperCase();
+                            }
+                            return u.isNotEmpty ? u.substring(0, u.length.clamp(1, 2)).toUpperCase() : '??';
+                          }
+                          
+                          final initials = getInitials(name, otherUid);
+                          final avatarColors = const [
+                            Color(0xFF1BAB8A), Color(0xFF7C4DFF), Color(0xFFFF7043), Color(0xFF2196F3), Color(0xFFE91E63)
+                          ];
+                          final colorIndex = (otherUid.isNotEmpty ? otherUid.codeUnitAt(0) : 0) % avatarColors.length;
+                          final avatarColor = avatarColors[colorIndex];
+                          
+                          if (context.mounted) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChatUIScreen(
+                                  roomId: room.id,
+                                  otherUid: otherUid,
+                                  otherInitials: initials,
+                                  otherColor: avatarColor,
+                                  otherPhotoUrl: (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : null,
+                                  taskTitle: room.requestTitle,
+                                  isPeminta: isRequester,
+                                  ctrl: ctrl,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isRead ? Colors.white : const Color(0xFFF0FAF8),
+                          borderRadius: BorderRadius.circular(16),
+                          border: isRead
+                              ? Border.all(color: const Color(0xFFEEEEEE))
+                              : Border.all(color: const Color(0xFF1BAB8A).withOpacity(0.3)),
+                          boxShadow: [
+                            if (!isRead)
+                              BoxShadow(
+                                color: const Color(0xFF1BAB8A).withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              )
+                          ],
+                        ),
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,7 +254,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           ),
                         ],
                       ),
-                    );
+                    ));
                   },
                 );
               },

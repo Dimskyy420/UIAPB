@@ -9,8 +9,9 @@ class InAppNotificationService {
     required String toUid,     // UID penerima notifikasi
     required String title,     // Judul notif
     required String body,      // Isi pesan notif
-    String type = 'general',   // Tipe: 'bid_received' | 'bid_accepted' | 'general'
+    String type = 'general',   // Tipe: 'bid_received' | 'bid_accepted' | 'general' | 'chat'
     String? requestId,         // ID request terkait (opsional)
+    String? roomId,            // ID chat room (opsional)
   }) async {
     try {
       await _db.collection('notifications').add({
@@ -19,6 +20,7 @@ class InAppNotificationService {
         'body': body,
         'type': type,
         'requestId': requestId,
+        'roomId': roomId,
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });

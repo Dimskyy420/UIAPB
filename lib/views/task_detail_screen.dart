@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/request_model.dart';
 import '../models/bid_model.dart';
 import '../controller/riwayat_controller.dart';
 import '../controller/chat_controller.dart';
+import '../services/in_app_notification_service.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/rating_dialog.dart';
 import 'chat_ui_screen.dart';
@@ -160,10 +162,18 @@ class TaskDetailScreen extends StatelessWidget {
               value: request.mode),
           if (request.location.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _DetailRow(
+            if (request.lokasiLat != null && request.lokasiLng != null)
+              _LocationNavigateRow(
+                address: request.location,
+                lat: request.lokasiLat!,
+                lng: request.lokasiLng!,
+              )
+            else
+              _DetailRow(
                 icon: Icons.map_outlined,
                 label: 'Lokasi',
-                value: request.location),
+                value: request.location,
+              ),
           ],
         ],
       ),
@@ -733,6 +743,23 @@ class _SelesaiButtonState extends State<_SelesaiButton> {
           .doc(widget.requestId)
           .update({'status': 'selesai'});
 
+      // ── Kirim notifikasi ke helper bahwa tugasnya sudah selesai ─────────────
+      try {
+        final reqDoc = await FirebaseFirestore.instance
+            .collection('requests')
+            .doc(widget.requestId)
+            .get();
+        final reqTitle = reqDoc.data()?['title'] as String? ?? 'tugasmu';
+
+        await InAppNotificationService.send(
+          toUid: widget.helperUid,
+          title: '✅ Tugas Selesai!',
+          body: '"$reqTitle" telah ditandai selesai oleh peminta. Terima kasih sudah membantu!',
+          type: 'job_done',
+          requestId: widget.requestId,
+        );
+      } catch (_) {}
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1016,3 +1043,103 @@ class _DetailRow extends StatelessWidget {
     );
   }
 }
+
+// ─── Baris lokasi dengan tombol buka navigasi ─────────────────────────────────
+
+class _LocationNavigateRow extends StatelessWidget {
+  final String address;
+  final double lat;
+  final double lng;
+
+  const _LocationNavigateRow({
+    required this.address,
+    required this.lat,
+    required this.lng,
+  });
+
+  Future<void> _openMaps(BuildContext context) async {
+    final mapsUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
+
+    try {
+      final launched = await launchUrl(
+        mapsUri,
+        mode: LaunchMode.platformDefault,
+      );
+      if (!launched) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal membuka Google Maps')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.map_outlined, size: 16, color: Color(0xFF1BAB8A)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Lokasi',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF888888),
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              Text(
+                address,
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF333333)),
+              ),
+              const SizedBox(height: 6),
+              Builder(
+                builder: (ctx) => GestureDetector(
+                  onTap: () => _openMaps(ctx),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1BAB8A).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: const Color(0xFF1BAB8A).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.navigation_rounded,
+                          size: 14, color: Color(0xFF1BAB8A)),
+                      SizedBox(width: 5),
+                      Text(
+                        'Buka Navigasi',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1BAB8A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ),  // Builder
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

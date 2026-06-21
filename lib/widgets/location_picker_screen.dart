@@ -1,18 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/picked_location.dart';
 import '../services/location_service.dart';
 
-/// Layar pemilih lokasi berbasis peta OpenStreetMap.
-///
-/// Tap di peta → pindahkan pin + resolusi alamat (best-effort). Tombol "lokasi
-/// saya" memusatkan ke posisi GPS. Konfirmasi mengembalikan [PickedLocation]
-/// lewat `Navigator.pop`.
-class LocationPickerScreen extends StatefulWidget {
-  /// Lokasi yang sebelumnya dipilih — dipakai sebagai titik & alamat awal.
-  final PickedLocation? initial;
 
+class LocationPickerScreen extends StatefulWidget {
+  final PickedLocation? initial;
   const LocationPickerScreen({super.key, this.initial});
 
   @override
@@ -21,25 +16,43 @@ class LocationPickerScreen extends StatefulWidget {
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
   static const _teal = Color(0xFF1BAB8A);
-
-  // Fallback saat reverse-geocode gagal — koordinat tetap valid, hanya teksnya
-  // yang tidak diketahui.
   static const _placeholder = 'Lokasi dipilih di peta';
 
   final MapController _mapController = MapController();
+  final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
 
   late LatLng _picked;
   String _address = '';
   bool _resolving = false;
   bool _locating = false;
 
+  // Autocomplete state
+  List<Map<String, dynamic>> _suggestions = [];
+  bool _searching = false;
+  bool _showSuggestions = false;
+  Timer? _debounce;
+
   @override
   void initState() {
     super.initState();
     _picked = widget.initial?.point ?? LocationService.telkomUniversity;
     _address = widget.initial?.address ?? '';
-    // Belum ada alamat untuk titik awal → coba resolusi sekali.
     if (_address.isEmpty) _resolveAddress(_picked);
+
+    _searchFocus.addListener(() {
+      if (!_searchFocus.hasFocus) {
+        setState(() => _showSuggestions = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _resolveAddress(LatLng point) async {
@@ -53,7 +66,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   }
 
   void _onMapTap(TapPosition _, LatLng point) {
-    setState(() => _picked = point);
+    _searchFocus.unfocus();
+    setState(() {
+      _picked = point;
+      _showSuggestions = false;
+    });
     _resolveAddress(point);
   }
 
@@ -74,9 +91,54 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       return;
     }
 
-    setState(() => _picked = pos);
+    setState(() {
+      _picked = pos;
+      _showSuggestions = false;
+    });
     _mapController.move(pos, 16);
     _resolveAddress(pos);
+  }
+
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      setState(() {
+        _suggestions = [];
+        _showSuggestions = false;
+        _searching = false;
+      });
+      return;
+    }
+
+    setState(() => _searching = true);
+    _debounce = Timer(const Duration(milliseconds: 600), () async {
+      final results = await LocationService.searchAddress(query);
+      if (!mounted) return;
+      setState(() {
+        _suggestions = results;
+        _searching = false;
+        _showSuggestions = results.isNotEmpty;
+      });
+    });
+  }
+
+  void _onSuggestionTap(Map<String, dynamic> suggestion) {
+    final lat = suggestion['lat'] as double;
+    final lon = suggestion['lon'] as double;
+    final name = suggestion['displayName'] as String;
+    final point = LatLng(lat, lon);
+
+    _searchCtrl.text = name;
+    _searchFocus.unfocus();
+
+    setState(() {
+      _picked = point;
+      _address = name;
+      _showSuggestions = false;
+      _suggestions = [];
+    });
+
+    _mapController.move(point, 16);
   }
 
   void _confirm() {
@@ -94,6 +156,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     return Scaffold(
       body: Stack(
         children: [
+          // ── Peta ──────────────────────────────────────────────────────────
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -119,7 +182,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   ),
                 ],
               ),
-              // Wajib dipertahankan: kebijakan OSM mensyaratkan atribusi.
               const RichAttributionWidget(
                 attributions: [
                   TextSourceAttribution('OpenStreetMap contributors'),
@@ -127,10 +189,147 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               ),
             ],
           ),
+
+          // ── Search bar + suggestions ───────────────────────────────────
+          _buildSearchBar(),
+
+          // ── Tombol kembali ────────────────────────────────────────────
           _buildBackButton(),
+
+          // ── Tombol lokasi saya ────────────────────────────────────────
           _buildLocateButton(),
+
+          // ── Bottom sheet konfirmasi ───────────────────────────────────
           _buildBottomSheet(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(60, 12, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // TextField
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Cari alamat atau tempat...',
+                  hintStyle: const TextStyle(
+                      color: Color(0xFFBBBBBB), fontSize: 13),
+                  prefixIcon: const Icon(Icons.search_rounded,
+                      size: 20, color: Color(0xFF888888)),
+                  suffixIcon: _searching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: _teal),
+                          ),
+                        )
+                      : _searchCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded,
+                                  size: 18, color: Color(0xFF888888)),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() {
+                                  _suggestions = [];
+                                  _showSuggestions = false;
+                                });
+                              },
+                            )
+                          : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                ),
+              ),
+            ),
+
+            // Dropdown suggestions
+            if (_showSuggestions && _suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _suggestions.length,
+                    separatorBuilder: (_, __) => const Divider(
+                        height: 1, indent: 16, color: Color(0xFFF0F0F0)),
+                    itemBuilder: (_, i) {
+                      final s = _suggestions[i];
+                      final name = s['displayName'] as String;
+                      return InkWell(
+                        onTap: () => _onSuggestionTap(s),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.place_outlined,
+                                  size: 16, color: _teal),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF333333)),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -164,7 +363,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   }
 
   Widget _buildLocateButton() {
-    // Ditempel di atas bottom sheet (bukan FAB default agar tidak tertutup).
     return Positioned(
       right: 16,
       bottom: 188,

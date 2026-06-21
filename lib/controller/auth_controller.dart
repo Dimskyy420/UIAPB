@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/notification_service.dart';
+
 import '../services/emailjs_service.dart';
 import '../services/otp_service.dart';
 
@@ -212,7 +212,6 @@ class AuthController {
   }
 
   Future<void> logout() async {
-    await NotificationService.clearFcmToken();
     await _googleSignIn.signOut();
     await _auth.signOut();
   }

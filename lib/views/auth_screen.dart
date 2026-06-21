@@ -227,7 +227,7 @@ class _AuthScreenState extends State<AuthScreen>
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                hintText: 'Email kampus',
+                hintText: 'Email',
                 hintStyle: const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13),
                 prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFFBBBBBB), size: 18),
                 filled: true,
@@ -479,7 +479,7 @@ class _AuthScreenState extends State<AuthScreen>
       children: [
         _field(
           controller: _loginEmailCtrl,
-          hint: 'Email kampus',
+          hint: 'Email',
           icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
         ),
@@ -534,7 +534,7 @@ class _AuthScreenState extends State<AuthScreen>
         const SizedBox(height: 11),
         _field(
           controller: _regEmailCtrl,
-          hint: 'Email kampus',
+          hint: 'Email',
           icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
         ),

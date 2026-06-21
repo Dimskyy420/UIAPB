@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat_model.dart';
+import '../services/in_app_notification_service.dart';
 
 class ChatController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -146,6 +147,20 @@ class ChatController {
       });
 
       await batch.commit();
+
+      // Tambahkan in-app notification ke user penerima
+      // Ambil nama pengirim dari firestore untuk judul notifikasi
+      final userDoc = await _db.collection('users').doc(currentUid).get();
+      final senderName = userDoc.data()?['name'] ?? userDoc.data()?['displayName'] ?? 'Seseorang';
+      
+      await InAppNotificationService.send(
+        toUid: otherUid,
+        title: 'Pesan Baru dari $senderName',
+        body: text.trim(),
+        type: 'chat',
+        roomId: roomId,
+      );
+
       return null;
     } catch (e) {
       return e.toString();

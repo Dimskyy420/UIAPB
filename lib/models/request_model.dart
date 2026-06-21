@@ -9,9 +9,6 @@ class RequestModel {
   final String duration;
   final String mode;
   final String location;
-  // Koordinat pin lokasi pertemuan (mode Tatap Muka). Disimpan sebagai dua
-  // field double datar — bukan GeoPoint — agar konsisten dengan field model
-  // lain. `location` di atas hanyalah alamat tampilan hasil reverse-geocode.
   final double? lokasiLat;
   final double? lokasiLng;
   final String date;

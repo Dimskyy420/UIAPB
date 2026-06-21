@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/request_model.dart';
 import '../controller/request_controller.dart';
 import '../controller/bid_controller.dart'; // ✅ TAMBAH IMPORT
@@ -617,7 +618,10 @@ class _TaskDetailSheetState extends State<_TaskDetailSheet> {
                     _detailCard([
                       _detailRow('Tanggal', request.date, Icons.calendar_today_outlined),
                       _detailRow('Waktu', request.time, Icons.schedule_outlined),
-                      _detailRow('Lokasi', request.location, Icons.location_on_outlined),
+                      if (request.lokasiLat != null && request.lokasiLng != null)
+                        _locationNavigateRow(context, request.location, request.lokasiLat!, request.lokasiLng!)
+                      else
+                        _detailRow('Lokasi', request.location, Icons.location_on_outlined),
                       _detailRow('Durasi', request.duration, Icons.timer_outlined),
                       _detailRow('Mode', request.mode,
                           request.mode == 'Tatap Muka'
@@ -827,4 +831,77 @@ class _TaskDetailSheetState extends State<_TaskDetailSheet> {
       ],
     );
   }
-}
+
+  Widget _locationNavigateRow(BuildContext context, String address, double lat, double lng) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF1BAB8A)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Lokasi',
+                style: TextStyle(
+                  fontSize: 11, color: Color(0xFF888888),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                address,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF333333),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () async {
+                  final mapsUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                  try {
+                    final launched = await launchUrl(mapsUri, mode: LaunchMode.platformDefault);
+                    if (!launched && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gagal membuka Google Maps')),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1BAB8A).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF1BAB8A).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.navigation_rounded, size: 14, color: Color(0xFF1BAB8A)),
+                      SizedBox(width: 5),
+                      Text(
+                        'Buka Navigasi',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1BAB8A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
