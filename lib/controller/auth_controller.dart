@@ -215,4 +215,23 @@ class AuthController {
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
+
+  Future<String?> sendPasswordReset({required String email}) async {
+    if (email.trim().isEmpty) return 'Email tidak boleh kosong';
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      return null; // null = sukses
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+          return 'Email tidak terdaftar';
+        case 'invalid-email':
+          return 'Format email tidak valid';
+        default:
+          return e.message ?? 'Gagal mengirim email reset';
+      }
+    } catch (e) {
+      return e.toString();
+    }
+  }
 }
