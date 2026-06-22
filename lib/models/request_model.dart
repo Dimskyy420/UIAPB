@@ -98,6 +98,7 @@ class RequestModel {
 
   // ─── Copy with ────────────────────────────────────────────────────────────
   RequestModel copyWith({
+    String? id,
     String? category,
     String? title,
     String? description,
@@ -112,7 +113,7 @@ class RequestModel {
     String? status,
   }) {
     return RequestModel(
-      id: id,
+      id: id ?? this.id,
       userId: userId,
       category: category ?? this.category,
       title: title ?? this.title,

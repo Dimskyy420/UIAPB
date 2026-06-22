@@ -37,7 +37,7 @@ class _EstimasiHargaScreenState extends State<EstimasiHargaScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => PermintaanTerkirimScreen(request: _currentDraft),
+          builder: (_) => PermintaanTerkirimScreen(request: _currentDraft.copyWith(id: id)),
         ),
       );
     } else {

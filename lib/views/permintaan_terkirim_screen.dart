@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../controller/request_controller.dart';
 import '../../models/request_model.dart';
+import '../../controller/riwayat_controller.dart';
+import 'task_detail_screen.dart';
 
 class PermintaanTerkirimScreen extends StatelessWidget {
   final RequestModel request;
@@ -353,7 +355,18 @@ class PermintaanTerkirimScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.popUntil(context, (route) => route.isFirst);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TaskDetailScreen(
+                    request: request,
+                    controller: RiwayatController(),
+                  ),
+                ),
+              );
+            },
             child: const Text(
               'Lihat kembali permintaan',
               style: TextStyle(
